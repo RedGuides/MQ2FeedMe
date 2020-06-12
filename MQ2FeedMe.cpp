@@ -21,7 +21,6 @@
 // It will eat food and drink from lists you specify if your hunger
 // or thirst levels fall below the thresholds you specifiy.  These
 // lists/thresholds are set in the ini (MQ2FeedMe.ini).
-// Threshold level is checked every 15 seconds or so (SKIP_PULSES).
 //
 // Lots of code stolen, credits goes to the author of those.
 //****************************************************************//
@@ -38,27 +37,20 @@
 //        /autofeed list   -> Display current food list and levels
 //****************************************************************//
 
-#include "../MQ2Plugin.h"
-using namespace std;
-#include <list>
-#include <string>
+#include <mq/Plugin.h>
 
 PreSetup("MQ2FeedMe");
 PLUGIN_VERSION(4.2);
 
-#define	SKIP_PULSES	50
-#define	NOID -1
-
 bool         Loaded=false;             // List Loaded?
-long         Pulses=0;                 // Pulses Skipped Counter
 
 long         FeedAt=0;                 // Feed Level
 long         DrnkAt=0;                 // Drink Level
 
 char         FindName[ITEM_NAME_LEN];  // Find Food/Drink Name
 char         Buffer[16]={0};
-list<string> Hunger;                   // Hunger Fix List
-list<string> Thirst;                   // Thirst Fix List
+std::list<std::string> Hunger;         // Hunger Fix List
+std::list<std::string> Thirst;         // Thirst Fix List
 
 bool          bAnnLevels = true;       // Announce Levels
 bool          bAnnConsume = true;      // Announce Consumption
@@ -71,13 +63,12 @@ const char* PLUGIN_NAME = "MQ2FeedMe";
 
 bool WindowOpen(PCHAR WindowName)
 {
-	PCSIDLWND pWnd=(PCSIDLWND)FindMQ2Window(WindowName);
-	return pWnd && pWnd->IsVisible();
+	return FindMQ2Window(WindowName, true) != nullptr;
 }
 
 bool IsCasting()
 {
-	return (pCharSpawn && ((PSPAWNINFO)pCharSpawn)->CastingData.SpellID != NOID);
+	return (pCharSpawn && ((PSPAWNINFO)pCharSpawn)->CastingData.SpellID != -1);
 }
 
 bool AbilityInUse()
@@ -88,10 +79,10 @@ bool AbilityInUse()
 
 bool CursorHasItem()
 {
-	return GetCharInfo2() && GetCharInfo2()->pInventoryArray->Inventory.Cursor != nullptr;
+	return GetPcProfile() && GetPcProfile()->pInventoryArray->Inventory.Cursor != nullptr;
 }
 
-void ReadList(list<string> *MyList, PCHAR fSec)
+void ReadList(std::list<std::string> *MyList, PCHAR fSec)
 {
 	char Buffer[MAX_STRING*10];
 	MyList->clear();
@@ -100,7 +91,7 @@ void ReadList(list<string> *MyList, PCHAR fSec)
 		PCHAR pBuffer=Buffer;
 		while (pBuffer[0]!=0) {
 			GetPrivateProfileString(fSec,pBuffer,"",szTemp,MAX_STRING,INIFileName);
-			if(szTemp[0]!=0) MyList->push_back(string(szTemp));
+			if(szTemp[0]!=0) MyList->push_back(std::string(szTemp));
 			pBuffer+=strlen(pBuffer)+1;
 		}
 	}
@@ -108,25 +99,25 @@ void ReadList(list<string> *MyList, PCHAR fSec)
 
 bool GoodToFeed()
 {
-	if(MQ2Globals::gGameState==GAMESTATE_INGAME)   // currently ingame
-	if(GetCharInfo2())                             // get charinfo
-	if(!CursorHasItem())                           // nothing on cursor
-	if ((IsCasting() ? (GetCharInfo2() && GetCharInfo2()->Class != EQData::Bard ? false : true) : true)) // not casting
-	if(!AbilityInUse())                            // not using abilities
-	if(!WindowOpen("SpellBookWnd"))                // not medding a spell
-	if(!WindowOpen("MerchantWnd"))                 // not interacting with vendor
-	if(!WindowOpen("TradeWnd"))                    // not trading with someone
-	if(!WindowOpen("BigBankWnd"))                  // not banking
-	if(!WindowOpen("BankWnd"))                     // not banking
-	if(!WindowOpen("LootWnd"))                     // not looting
-	if(!IAmCamping)                                // not camping
-		return true;                                 // then return true
-	return false;                                  // otherwise false
+	if(GetGameState() == GAMESTATE_INGAME &&                  // currently ingame
+	   GetPcProfile() &&                                      // get charinfo
+	   !CursorHasItem() &&                                    // nothing on cursor
+	   (!IsCasting() || GetPcProfile()->Class == Bard) &&     // not casting unless bard
+	   !AbilityInUse() &&                                     // not using abilities
+	   !WindowOpen("SpellBookWnd") &&                         // not looking at the book
+	   !WindowOpen("MerchantWnd") &&                          // not interacting with vendor
+	   !WindowOpen("TradeWnd") &&                             // not trading with someone
+	   !WindowOpen("BigBankWnd") && !WindowOpen("BankWnd") && // not banking
+	   !WindowOpen("LootWnd") &&                              // not looting
+	   !IAmCamping) {                                         // not camping
+		return true;
+	}
+	return false;
 }
 
-void ListTypes(list<string> fTempList)
+void ListTypes(std::list<std::string> fTempList)
 {
-	list<string>::iterator pTempList;
+	std::list<std::string>::iterator pTempList;
 	int i = 1;
 	pTempList = fTempList.begin();
 	while (pTempList != fTempList.end()) {
@@ -143,9 +134,9 @@ void Execute(PCHAR zFormat, ...)
 	DoCommand(GetCharInfo()->pSpawn,zOutput);
 }
 
-void Consume(BYTE fTYPE, list<string> fLIST)
+void Consume(BYTE fTYPE, std::list<std::string> fLIST)
 {
-	list<string>::iterator pTempList;
+	std::list<std::string>::iterator pTempList;
 	pTempList = fLIST.begin();
 	while (pTempList != fLIST.end()) {
 		strcpy_s(FindName, pTempList->c_str());
@@ -179,7 +170,7 @@ void AutoFeedCmd(PSPAWNINFO pLPlayer, char* szLine)
 		if (bAnnLevels) {
 			sprintf_s(Buffer, "%d", FeedAt);
 			WriteChatf("\ay%s\aw:: AutoFeed(\ag%s\ax).", PLUGIN_NAME, (FeedAt) ? Buffer : "\aroff");
-			WriteChatf("\ay%s\aw:: Current Hunger(\ag%d\ax)", PLUGIN_NAME, GetCharInfo2()->hungerlevel);
+			WriteChatf("\ay%s\aw:: Current Hunger(\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->hungerlevel);
 		}
 	} else if (!_stricmp(Arg, "warn")) {
 		if (bFoodWarn) {
@@ -200,8 +191,8 @@ void AutoFeedCmd(PSPAWNINFO pLPlayer, char* szLine)
 			return;
 		}
 		if (ItemOnCursor()) {
-			if (FindItemCountByID(GetCharInfo2()->pInventoryArray->Inventory.Cursor->ID)) {
-				if (PCONTENTS item = FindItemByID(GetCharInfo2()->pInventoryArray->Inventory.Cursor->ID)) {
+			if (FindItemCountByID(GetPcProfile()->pInventoryArray->Inventory.Cursor->ID)) {
+				if (PCONTENTS item = FindItemByID(GetPcProfile()->pInventoryArray->Inventory.Cursor->ID)) {
 					if (PITEMINFO pIteminf = GetItemFromContents(item)) {
 						if (pIteminf->FoodDuration) {
 							WriteChatf("%s:: \ayFound Item: \ap%s", PLUGIN_NAME, pIteminf->Name);
@@ -210,11 +201,11 @@ void AutoFeedCmd(PSPAWNINFO pLPlayer, char* szLine)
 							int FoodIndex = Hunger.size() + 1;
 							sprintf_s(temp, "Food%i", FoodIndex);
 							sprintf_s(ItemtoAdd, "%s", pIteminf->Name);
-							list<string>::iterator pTempList;
+							std::list<std::string>::iterator pTempList;
 							pTempList = Hunger.begin();
 							while (pTempList != Hunger.end()) {
 								strcpy_s(FindName, pTempList->c_str());
-								if (PCONTENTS pItem = FindItemByName(FindName, true)) {
+								if (FindItemByName(FindName, true)) {
 									if (!_stricmp(FindName, ItemtoAdd)) {
 										WriteChatf("%s:: \ap%s \aris already on the list", PLUGIN_NAME, ItemtoAdd);
 										return;
@@ -242,7 +233,7 @@ void AutoFeedCmd(PSPAWNINFO pLPlayer, char* szLine)
 		sprintf_s(Buffer, "%d", FeedAt);
 		WritePrivateProfileString(GetCharInfo()->Name, "AutoFeed", Buffer, INIFileName);
 		WriteChatf("\ay%s\aw:: AutoFeed(\ag%s\ax).", PLUGIN_NAME, (FeedAt) ? Buffer : "\aroff");
-		if (bAnnLevels) WriteChatf("\ay%s\aw:: Current Thirst(\ag%d\ax) Hunger(\ag%d\ax)", PLUGIN_NAME, GetCharInfo2()->thirstlevel, GetCharInfo2()->hungerlevel);
+		if (bAnnLevels) WriteChatf("\ay%s\aw:: Current Thirst(\ag%d\ax) Hunger(\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->thirstlevel, GetPcProfile()->hungerlevel);
 	}
 	else if (!_stricmp(Arg, "announceConsume")) {
 		if (bAnnConsume) {
@@ -270,7 +261,7 @@ void AutoDrinkCmd(PSPAWNINFO pLPlayer, char* szLine)
 		if (bAnnLevels) {
 			sprintf_s(Buffer, "%d", DrnkAt);
 			WriteChatf("\ay%s\aw:: AutoDrink(\ag%s\ax).", PLUGIN_NAME, (DrnkAt) ? Buffer : "\aroff");
-			WriteChatf("\ay%s\aw:: Current Thirst(\ag%d\ax)", PLUGIN_NAME, GetCharInfo2()->thirstlevel);
+			WriteChatf("\ay%s\aw:: Current Thirst(\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->thirstlevel);
 		}
 	} else if (!_stricmp(Arg, "warn")) {
 		if (bDrinkWarn) {
@@ -291,8 +282,8 @@ void AutoDrinkCmd(PSPAWNINFO pLPlayer, char* szLine)
 			return;
 		}
 		if (ItemOnCursor()) {
-			if (FindItemCountByID(GetCharInfo2()->pInventoryArray->Inventory.Cursor->ID)) {
-				if (PCONTENTS item = FindItemByID(GetCharInfo2()->pInventoryArray->Inventory.Cursor->ID)) {
+			if (FindItemCountByID(GetPcProfile()->pInventoryArray->Inventory.Cursor->ID)) {
+				if (PCONTENTS item = FindItemByID(GetPcProfile()->pInventoryArray->Inventory.Cursor->ID)) {
 					if (PITEMINFO pIteminf = GetItemFromContents(item)) {
 						if (pIteminf->FoodDuration) {
 							WriteChatf("%s:: \ayFound Item: \ap%s", PLUGIN_NAME, pIteminf->Name);
@@ -301,11 +292,11 @@ void AutoDrinkCmd(PSPAWNINFO pLPlayer, char* szLine)
 							int FoodIndex = Thirst.size() + 1;
 							sprintf_s(temp, "Drink%i", FoodIndex);
 							sprintf_s(ItemtoAdd, "%s", pIteminf->Name);
-							list<string>::iterator pTempList;
+							std::list<std::string>::iterator pTempList;
 							pTempList = Thirst.begin();
 							while (pTempList != Thirst.end()) {
 								strcpy_s(FindName, pTempList->c_str());
-								if (PCONTENTS pItem = FindItemByName(FindName, true)) {
+								if (FindItemByName(FindName, true)) {
 									if (!_stricmp(FindName, ItemtoAdd)) {
 										WriteChatf("%s:: \ap%s \aris already on the list", PLUGIN_NAME, ItemtoAdd);
 										return;
@@ -333,7 +324,7 @@ void AutoDrinkCmd(PSPAWNINFO pLPlayer, char* szLine)
 		sprintf_s(Buffer, "%d", DrnkAt);
 		WritePrivateProfileString(GetCharInfo()->Name, "AutoDrink", Buffer, INIFileName);
 		WriteChatf("\ay%s\aw:: AutoDrink(\ag%s\ax).", PLUGIN_NAME, (DrnkAt) ? Buffer :"\aroff");
-		if (bAnnLevels) WriteChatf("\ay%s\aw:: Current Thirst(\ag%d\ax) Hunger(\ag%d\ax)", PLUGIN_NAME, GetCharInfo2()->thirstlevel, GetCharInfo2()->hungerlevel);
+		if (bAnnLevels) WriteChatf("\ay%s\aw:: Current Thirst(\ag%d\ax) Hunger(\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->thirstlevel, GetPcProfile()->hungerlevel);
 	}
 	else if (!_stricmp(Arg, "announceConsume")) {
 		if (bAnnConsume) {
@@ -349,20 +340,12 @@ void AutoDrinkCmd(PSPAWNINFO pLPlayer, char* szLine)
 
 PLUGIN_API void OnPulse()
 {
-	if (++Pulses < SKIP_PULSES) return;
+	static int Pulses = 0;
+	if (++Pulses < 50) return;
 	Pulses = 0;
 	if (!GoodToFeed()) return;
-	if (DrnkAt && (LONG)GetCharInfo2()->thirstlevel < DrnkAt) Consume(ITEMITEMTYPE_WATER,Thirst);
-	if (FeedAt && (LONG)GetCharInfo2()->hungerlevel < FeedAt) Consume(ITEMITEMTYPE_FOOD,Hunger);
-}
-
-template <unsigned int _Size>LPSTR SafeItoa(int _Value,char(&_Buffer)[_Size], int _Radix)
-{
-	errno_t err = _itoa_s(_Value, _Buffer, _Radix);
-	if (!err) {
-		return _Buffer;
-	}
-	return "";
+	if (DrnkAt && (LONG)GetPcProfile()->thirstlevel < DrnkAt) Consume(ITEMITEMTYPE_WATER,Thirst);
+	if (FeedAt && (LONG)GetPcProfile()->hungerlevel < FeedAt) Consume(ITEMITEMTYPE_FOOD,Hunger);
 }
 
 PLUGIN_API DWORD OnIncomingChat(PCHAR Line, DWORD Color)
@@ -385,8 +368,8 @@ PLUGIN_API VOID OnZoned()
 
 PLUGIN_API void SetGameState(DWORD GameState)
 {
-	if (GetGameState() == GAMESTATE_INGAME) {
-		if (GetCharInfo2()) {
+	if (GameState == GAMESTATE_INGAME) {
+		if (GetPcProfile()) {
 			DrnkAt     = GetPrivateProfileInt(GetCharInfo()->Name, "AutoDrink", 0, INIFileName);
 			FeedAt     = GetPrivateProfileInt(GetCharInfo()->Name, "AutoFeed",  0, INIFileName);
 			bAnnLevels = GetPrivateProfileInt("Settings",          "Announce",  1, INIFileName) != 0;
@@ -394,9 +377,9 @@ PLUGIN_API void SetGameState(DWORD GameState)
 			bFoodWarn  = GetPrivateProfileInt("Settings",          "FoodWarn",  0, INIFileName) != 0;
 			bDrinkWarn = GetPrivateProfileInt("Settings",          "DrinkWarn",  0, INIFileName) != 0;
 
-			WritePrivateProfileString("Settings", "Announce", SafeItoa(bAnnLevels, Buffer, 10), INIFileName);
-			WritePrivateProfileString("Settings", "FoodWarn", SafeItoa(bFoodWarn, Buffer, 10), INIFileName);
-			WritePrivateProfileString("Settings", "DrinkWarn", SafeItoa(bDrinkWarn, Buffer, 10), INIFileName);
+			WritePrivateProfileString("Settings", "Announce", bAnnLevels ? "1" : "0", INIFileName);
+			WritePrivateProfileString("Settings", "FoodWarn", bFoodWarn ? "1" : "0", INIFileName);
+			WritePrivateProfileString("Settings", "DrinkWarn", bDrinkWarn ? "1" : "0", INIFileName);
 			if (!Loaded) {
 				ReadList(&Hunger,"FOOD");
 				ReadList(&Thirst,"DRINK");
