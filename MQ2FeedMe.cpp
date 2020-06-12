@@ -63,7 +63,8 @@ const char* PLUGIN_NAME = "MQ2FeedMe";
 
 bool WindowOpen(PCHAR WindowName)
 {
-	return FindMQ2Window(WindowName, true) != nullptr;
+	const auto pWnd = FindMQ2Window(WindowName);
+	return  pWnd != nullptr && pWnd->IsVisible();
 }
 
 bool IsCasting()
