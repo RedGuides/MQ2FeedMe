@@ -99,16 +99,22 @@ void ReadList(std::list<std::string> *MyList, PCHAR fSec)
 
 bool GoodToFeed()
 {
+	CHARINFO* pChar = GetCharInfo();
+	CHARINFO2* pChar2 = GetCharInfo2();
+
+	if (!pChar || !pChar2)
+		return false;
+
 	if(GetGameState() == GAMESTATE_INGAME &&                  // currently ingame
-	   GetCharInfo2() &&                                      // get charinfo
 	   !CursorHasItem() &&                                    // nothing on cursor
-	   (!IsCasting() || GetCharInfo2()->Class == Bard) &&     // not casting unless bard
+	   (!IsCasting() || pChar2->Class == Bard) &&     // not casting unless bard
 	   !AbilityInUse() &&                                     // not using abilities
 	   !WindowOpen("SpellBookWnd") &&                         // not looking at the book
 	   !WindowOpen("MerchantWnd") &&                          // not interacting with vendor
 	   !WindowOpen("TradeWnd") &&                             // not trading with someone
 	   !WindowOpen("BigBankWnd") && !WindowOpen("BankWnd") && // not banking
 	   !WindowOpen("LootWnd") &&                              // not looting
+	   pChar->pSpawn->StandState != STANDSTATE_FEIGN &&       // not Feigned
 	   !IAmCamping) {                                         // not camping
 		return true;
 	}
