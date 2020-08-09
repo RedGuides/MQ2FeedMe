@@ -107,13 +107,14 @@ bool GoodToFeed()
 
 	if(GetGameState() == GAMESTATE_INGAME &&                  // currently ingame
 	   !CursorHasItem() &&                                    // nothing on cursor
-	   (!IsCasting() || pChar2->Class == Bard) &&     // not casting unless bard
+	   (!IsCasting() || pChar2->Class == Bard) &&             // not casting unless bard
 	   !AbilityInUse() &&                                     // not using abilities
 	   !WindowOpen("SpellBookWnd") &&                         // not looking at the book
 	   !WindowOpen("MerchantWnd") &&                          // not interacting with vendor
 	   !WindowOpen("TradeWnd") &&                             // not trading with someone
 	   !WindowOpen("BigBankWnd") && !WindowOpen("BankWnd") && // not banking
 	   !WindowOpen("LootWnd") &&                              // not looting
+	   pChar->pSpawn &&                                       // ensure pSpawn info is valid
 	   pChar->pSpawn->StandState != STANDSTATE_FEIGN &&       // not Feigned
 	   !IAmCamping) {                                         // not camping
 		return true;
