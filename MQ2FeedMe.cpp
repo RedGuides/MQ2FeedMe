@@ -110,6 +110,8 @@ bool GoodToFeed()
 	   !WindowOpen("TradeWnd") &&                             // not trading with someone
 	   !WindowOpen("BigBankWnd") && !WindowOpen("BankWnd") && // not banking
 	   !WindowOpen("LootWnd") &&                              // not looting
+	   pChar->pSpawn &&                                       // ensure pSpawn info is valid
+	   pChar->pSpawn->StandState != STANDSTATE_FEIGN &&       // not Feigned
 	   !IAmCamping) {                                         // not camping
 		return true;
 	}
