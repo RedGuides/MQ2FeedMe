@@ -46,8 +46,6 @@ bool         Loaded=false;             // List Loaded?
 
 long         FeedAt=0;                 // Feed Level
 long         DrnkAt=0;                 // Drink Level
-
-char         FindName[ITEM_NAME_LEN];  // Find Food/Drink Name
 char         Buffer[16]={0};
 std::list<std::string> Hunger;         // Hunger Fix List
 std::list<std::string> Thirst;         // Thirst Fix List
@@ -83,7 +81,7 @@ bool CursorHasItem()
 	return GetPcProfile() && GetPcProfile()->GetInventorySlot(InvSlot_Cursor) != nullptr;
 }
 
-void ReadList(std::list<std::string> *MyList, PCHAR fSec)
+void ReadList(std::list<std::string>* MyList, PCHAR fSec)
 {
 	char Buffer[MAX_STRING*10];
 	MyList->clear();
@@ -102,7 +100,7 @@ bool GoodToFeed()
 {
 	auto pChar = GetCharInfo();
 	auto pChar2 = GetPcProfile();
-	
+
 	if(GetGameState() == GAMESTATE_INGAME &&                  // currently ingame
 	   pChar &&                                               // have Charinfo
 	   pChar->pSpawn &&                                       // have a Spawn
@@ -122,15 +120,12 @@ bool GoodToFeed()
 	return false;
 }
 
-void ListTypes(std::list<std::string> fTempList)
+void ListTypes(const std::list<std::string>& list)
 {
-	std::list<std::string>::iterator pTempList;
 	int i = 1;
-	pTempList = fTempList.begin();
-	while (pTempList != fTempList.end()) {
-		WriteChatf("\ag - %d. \aw%s", i, pTempList->c_str());
-		i++;
-		pTempList++;
+	for (const std::string& value : list)
+	{
+		WriteChatf("\ag - %d. \aw%s", i++, value.c_str());
 	}
 }
 
@@ -141,22 +136,18 @@ void Execute(PCHAR zFormat, ...)
 	DoCommand(GetCharInfo()->pSpawn,zOutput);
 }
 
-void Consume(BYTE fTYPE, std::list<std::string> fLIST)
+void Consume(uint8_t itemClass, const std::list<std::string>& fLIST)
 {
-	std::list<std::string>::iterator pTempList;
-	pTempList = fLIST.begin();
-	while (pTempList != fLIST.end()) {
-		strcpy_s(FindName, pTempList->c_str());
-		if (PCONTENTS pItem = FindItemByName(FindName,true)) {
-			if (GetItemFromContents(pItem)->ItemType == fTYPE) {
-				if (bAnnConsume) WriteChatf("\ay%s\aw:: Consuming -> \ag%s.", PLUGIN_NAME, FindName);
-				Execute("/useitem %d %d", pItem->Contents.ItemSlot, pItem->Contents.ItemSlot2);
-				return;
-			}
+	for (const std::string& name : fLIST) {
+		ItemPtr pItem = FindItemByName(name.c_str(), true);
+		if (pItem && pItem->GetItemClass() == itemClass) {
+			if (bAnnConsume) WriteChatf("\ay%s\aw:: Consuming -> \ag%s.", PLUGIN_NAME, name.c_str());
+			Execute("/useitem %d %d", pItem->GetItemLocation().GetSlot(0), pItem->GetItemLocation().GetSlot(1));
+			return;
 		}
-		pTempList++;
 	}
-	if (fTYPE == ItemClass_Food) {
+
+	if (itemClass == ItemClass_Food) {
 		if (bFoodWarn) WriteChatf("\ay%s\aw:: No Food to Consume", PLUGIN_NAME);
 	} else {
 		if (bDrinkWarn) WriteChatf("\ay%s\aw:: No Drink to Consume", PLUGIN_NAME);
@@ -197,36 +188,25 @@ void AutoFeedCmd(PSPAWNINFO pLPlayer, char* szLine)
 			WriteChatf("%s:: \arNeed to have a food item on your cursor to do this.", PLUGIN_NAME);
 			return;
 		}
-		if (PCONTENTS item = GetPcProfile()->GetInventorySlot(InvSlot_Cursor)) {
-			if (PITEMINFO pIteminf = GetItemFromContents(item)) {
-				if (pIteminf->FoodDuration) {
-					WriteChatf("%s:: \ayFound Item: \ap%s", PLUGIN_NAME, pIteminf->Name);
-					char temp[MAX_STRING] = "";
-					char ItemtoAdd[MAX_STRING] = "";
-					int FoodIndex = Hunger.size() + 1;
-					sprintf_s(temp, "Food%i", FoodIndex);
-					sprintf_s(ItemtoAdd, "%s", pIteminf->Name);
-					std::list<std::string>::iterator pTempList;
-					pTempList = Hunger.begin();
-					while (pTempList != Hunger.end()) {
-						strcpy_s(FindName, pTempList->c_str());
-						if (FindItemByName(FindName, true)) {
-							if (!_stricmp(FindName, ItemtoAdd)) {
-								WriteChatf("%s:: \ap%s \aris already on the list", PLUGIN_NAME, ItemtoAdd);
-								return;
-							}
-						}
-						pTempList++;
-					}
-					WritePrivateProfileString("Food", temp, ItemtoAdd, INIFileName);
-					EzCommand("/autoinv");
-					WriteChatf("%s \agAdded\aw: \ap%s \ayto your autofeed list", PLUGIN_NAME, ItemtoAdd);
-					ReadList(&Hunger, "FOOD");
-				}
-				else {
-					WriteChatf("%s:: \arThat's not Food. Don't be rediculous", PLUGIN_NAME);
+
+		ItemPtr pItem = GetPcProfile()->GetInventorySlot(InvSlot_Cursor);
+		if (pItem) {
+			if (!pItem->GetItemDefinition()->FoodDuration || pItem->GetItemClass() != ItemClass_Food) {
+				WriteChatf("%s:: \arThat's not food. Don't be rediculous", PLUGIN_NAME);
+				return;
+			}
+			WriteChatf("%s:: \ayFound Item: \ap%s", PLUGIN_NAME, pItem->GetName());
+			int FoodIndex = Hunger.size() + 1;
+			for (const std::string& itemName : Hunger) {
+				if (ci_equals(itemName, pItem->GetName())) {
+					WriteChatf("%s:: \ap%s \aris already on the list", PLUGIN_NAME, pItem->GetName());
+					return;
 				}
 			}
+			WritePrivateProfileString("Food", fmt::format("Food{}", FoodIndex), pItem->GetName(), INIFileName);
+			Hunger.push_back(pItem->GetName());
+			EzCommand("/autoinv");
+			WriteChatf("%s \agAdded\aw: \ap%s \ayto your autofeed list", PLUGIN_NAME, pItem->GetName());
 		}
 	}
 	else if (IsNumber(Arg)) {
@@ -276,44 +256,33 @@ void AutoDrinkCmd(PSPAWNINFO pLPlayer, char* szLine)
 		}
 	}
 	else if (!_stricmp(Arg, "reload")) {
-			ReadList(&Hunger, "FOOD");
-			ReadList(&Thirst, "DRINK");
+		ReadList(&Hunger, "FOOD");
+		ReadList(&Thirst, "DRINK");
 	}
 	else if (!_stricmp(Arg, "add")) {
 		if (!ItemOnCursor()) {
 			WriteChatf("%s:: \arNeed to have a food item on your cursor to do this.", PLUGIN_NAME);
 			return;
 		}
-		if (CONTENTS* item = GetPcProfile()->GetInventorySlot(InvSlot_Cursor)) {
-			if (PITEMINFO pIteminf = GetItemFromContents(item)) {
-				if (pIteminf->FoodDuration) {
-					WriteChatf("%s:: \ayFound Item: \ap%s", PLUGIN_NAME, pIteminf->Name);
-					char temp[MAX_STRING] = "";
-					char ItemtoAdd[MAX_STRING] = "";
-					int FoodIndex = Thirst.size() + 1;
-					sprintf_s(temp, "Drink%i", FoodIndex);
-					sprintf_s(ItemtoAdd, "%s", pIteminf->Name);
-					std::list<std::string>::iterator pTempList;
-					pTempList = Thirst.begin();
-					while (pTempList != Thirst.end()) {
-						strcpy_s(FindName, pTempList->c_str());
-						if (FindItemByName(FindName, true)) {
-							if (!_stricmp(FindName, ItemtoAdd)) {
-								WriteChatf("%s:: \ap%s \aris already on the list", PLUGIN_NAME, ItemtoAdd);
-								return;
-							}
-						}
-						pTempList++;
-					}
-					WritePrivateProfileString("Drink", temp, ItemtoAdd, INIFileName);
-					EzCommand("/autoinv");
-					WriteChatf("%s \agAdded\aw: \ap%s \ayto your autodrink list", PLUGIN_NAME, ItemtoAdd);
-					ReadList(&Thirst, "DRINK");
-				}
-				else {
-					WriteChatf("%s:: \arThat's not a drink. Don't be rediculous", PLUGIN_NAME);
+
+		ItemPtr pItem = GetPcProfile()->GetInventorySlot(InvSlot_Cursor);
+		if (pItem) {
+			if (!pItem->GetItemDefinition()->FoodDuration || pItem->GetItemClass() != ItemClass_Drink) {
+				WriteChatf("%s:: \arThat's not a drink. Don't be ridiculous", PLUGIN_NAME);
+				return;
+			}
+			WriteChatf("%s:: \ayFound Item: \ap%s", PLUGIN_NAME, pItem->GetName());
+			int FoodIndex = Thirst.size() + 1;
+			for (const std::string& itemName : Thirst) {
+				if (ci_equals(itemName, pItem->GetName())) {
+					WriteChatf("%s:: \ap%s \aris already on the list", PLUGIN_NAME, pItem->GetName());
+					return;
 				}
 			}
+			WritePrivateProfileString("Drink", fmt::format("Drink{}", FoodIndex), pItem->GetName(), INIFileName);
+			Thirst.push_back(pItem->GetName());
+			EzCommand("/autoinv");
+			WriteChatf("%s \agAdded\aw: \ap%s \ayto your autodrink list", PLUGIN_NAME, pItem->GetName());
 		}
 	}
 	else if (IsNumber(Arg)) {
