@@ -109,7 +109,7 @@ bool GoodToFeed()
 	   pChar2 &&                                              // have PcProfile
 	   !CursorHasItem() &&                                    // nothing on cursor
 	   (!IsCasting() || pChar2->Class == Bard) &&             // not casting unless bard
-	   !AbilityInUse() &&                                     // not using abilities
+	   (!AbilityInUse() || pChar2->Class == Bard) &&          // not using abilities unless bard
 	   !WindowOpen("SpellBookWnd") &&                         // not looking at the book
 	   !WindowOpen("MerchantWnd") &&                          // not interacting with vendor
 	   !WindowOpen("TradeWnd") &&                             // not trading with someone
