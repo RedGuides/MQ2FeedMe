@@ -76,11 +76,6 @@ bool AbilityInUse()
 	return true;
 }
 
-bool CursorHasItem()
-{
-	return GetPcProfile() && GetPcProfile()->GetInventorySlot(InvSlot_Cursor) != nullptr;
-}
-
 void ReadList(std::list<std::string>* MyList, PCHAR fSec)
 {
 	char Buffer[MAX_STRING*10];
@@ -105,7 +100,7 @@ bool GoodToFeed()
 	   pChar &&                                               // have Charinfo
 	   pChar->pSpawn &&                                       // have a Spawn
 	   pChar2 &&                                              // have PcProfile
-	   !CursorHasItem() &&                                    // nothing on cursor
+	   !ItemOnCursor() &&                                     // nothing on cursor
 	   (!IsCasting() || pChar2->Class == Bard) &&             // not casting unless bard
 	   (!AbilityInUse() || pChar2->Class == Bard) &&          // not using abilities unless bard
 	   !WindowOpen("SpellBookWnd") &&                         // not looking at the book
