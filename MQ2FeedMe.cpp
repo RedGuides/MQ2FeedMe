@@ -67,13 +67,12 @@ bool WindowOpen(PCHAR WindowName)
 
 bool IsCasting()
 {
-	return (pCharSpawn && ((PSPAWNINFO)pCharSpawn)->CastingData.SpellID != -1);
+	return pLocalPlayer && pLocalPlayer->CastingData.SpellID != -1;
 }
 
 bool AbilityInUse()
 {
-	if (pCharSpawn && ((PSPAWNINFO)pCharSpawn)->CastingData.SpellETA == 0) return false;
-	return true;
+	return pLocalPlayer && pLocalPlayer->CastingData.SpellETA != 0;
 }
 
 void ReadList(std::list<std::string>* MyList, PCHAR fSec)
