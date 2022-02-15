@@ -190,7 +190,7 @@ void AutoFeedCmd(PSPAWNINFO pLPlayer, char* szLine)
 				return;
 			}
 			WriteChatf("%s:: \ayFound Item: \ap%s", PLUGIN_NAME, pItem->GetName());
-			int FoodIndex = Hunger.size() + 1;
+			int FoodIndex = (int)Hunger.size() + 1;
 			for (const std::string& itemName : Hunger) {
 				if (ci_equals(itemName, pItem->GetName())) {
 					WriteChatf("%s:: \ap%s \aris already on the list", PLUGIN_NAME, pItem->GetName());
@@ -266,7 +266,7 @@ void AutoDrinkCmd(PSPAWNINFO pLPlayer, char* szLine)
 				return;
 			}
 			WriteChatf("%s:: \ayFound Item: \ap%s", PLUGIN_NAME, pItem->GetName());
-			int FoodIndex = Thirst.size() + 1;
+			int FoodIndex = (int)Thirst.size() + 1;
 			for (const std::string& itemName : Thirst) {
 				if (ci_equals(itemName, pItem->GetName())) {
 					WriteChatf("%s:: \ap%s \aris already on the list", PLUGIN_NAME, pItem->GetName());
