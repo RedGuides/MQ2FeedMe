@@ -86,11 +86,13 @@ public:
 	//virtual bool GetMember(MQVarPtr VarPtr, const char* Member, char* Index, MQTypeVar& Dest) override
 	bool MQ2FeedMeType::GetMember(MQVarPtr VarPtr, const char* Member, char* Index, MQTypeVar& Dest) {
 		MQTypeMember* pMember = MQ2FeedMeType::FindMember(Member);
-		if (!pMember) {
+		if (!pMember)
+		{
 			return false;
 		}
 
-		if (!pLocalPlayer) {
+		if (!pLocalPlayer)
+		{
 			return false;
 		}
 
@@ -115,23 +117,24 @@ public:
 				Dest.DWord = bDrinkWarn;
 				Dest.Type = pBoolType;
 				return true;
-
-
 			default:
 				break;
 			}
 		return false;
 	}
 
-	bool MQ2FeedMeType::ToString(MQVarPtr VarPtr, char* Destination) {
+	bool MQ2FeedMeType::ToString(MQVarPtr VarPtr, char* Destination)
+	{
 		return true;
 	}
 
-	bool MQ2FeedMeType::FromData(const MQVarPtr& VarPtr, MQTypeVar& Source) {
+	bool MQ2FeedMeType::FromData(const MQVarPtr& VarPtr, MQTypeVar& Source)
+	{
 		return false;
 	}
 
-	bool MQ2FeedMeType::FromString(MQVarPtr& VarPtr, const char* Source) {
+	bool MQ2FeedMeType::FromString(MQVarPtr& VarPtr, const char* Source)
+	{
 		return false;
 	}
 
@@ -140,7 +143,8 @@ public:
 MQ2FeedMeType* pFeedMeType = nullptr;
 
 //bool TrophyData(const char* szIndex, MQTypeVar& Dest)
-bool dataFeedMe(const char* szIndex, MQTypeVar& Dest) {
+bool dataFeedMe(const char* szIndex, MQTypeVar& Dest)
+{
 	Dest.DWord = 1;
 	Dest.Type = pFeedMeType;
 	return true;
@@ -167,7 +171,7 @@ void ReadList(std::list<std::string>* MyList, PCHAR fSec)
 	char Buffer[MAX_STRING*10];
 	MyList->clear();
 
-	if(GetPrivateProfileString(fSec, NULL, "", Buffer, MAX_STRING*10 , INIFileName))
+	if(GetPrivateProfileString(fSec, NULL, "", Buffer, MAX_STRING * 10 , INIFileName))
 	{
 		char  szTemp[MAX_STRING];
 		char* pBuffer = Buffer;
@@ -241,15 +245,16 @@ void Consume(uint8_t itemClass, const std::list<std::string>& fLIST)
 		{
 			if (bAnnConsume)
 			{
-				WriteChatf("\ay%s\aw:: Consuming -> \ag%s.", PLUGIN_NAME, name.c_str());
+				WriteChatf("\ay%s\aw:: Consuming -> \ag%s.", PLUGIN_NAME, pItem->GetName());
 			}
 
-			DoCommandf("/useitem %d %d", pItem->GetItemLocation().GetSlot(0), pItem->GetItemLocation().GetSlot(1));
+			DoCommandf("/useitem \"%s\"", pItem->GetName());
 			return;
 		}
 	}
 
-	if (itemClass == ItemClass_Food) {
+	if (itemClass == ItemClass_Food)
+	{
 		if (bFoodWarn)
 		{
 			WriteChatf("\ay%s\aw:: No Food to Consume", PLUGIN_NAME);
@@ -275,7 +280,6 @@ void HandleFoodDrinkItem()
 	ItemPtr pItem = GetPcProfile()->GetInventorySlot(InvSlot_Cursor);
 	if (pItem)
 	{
-		auto pItemClass = pItem->GetItemClass();
 		if (!pItem->GetItemDefinition()->FoodDuration)
 		{
 			WriteChatf("%s:: \arThat's not food or drink. Don't be rediculous", PLUGIN_NAME);
@@ -284,6 +288,7 @@ void HandleFoodDrinkItem()
 
 		WriteChatf("%s:: \ayFound Item: \ap%s", PLUGIN_NAME, pItem->GetName());
 
+		auto pItemClass = pItem->GetItemClass();
 		if (pItemClass == ItemClass_Food)
 		{
 			int FoodIndex = static_cast<int>(Hunger.size()) + 1;
@@ -392,7 +397,8 @@ void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
 		{
 			bFoodWarn = 0;
 			WriteChatf("\ay%s\aw:: Food Warning Off", PLUGIN_NAME);
-		} else
+		}
+		else
 		{
 			bFoodWarn = 1;
 			WriteChatf("\ay%s\aw:: Food Warning On", PLUGIN_NAME);
@@ -405,6 +411,7 @@ void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
 	else if (IsNumber(Arg))
 	{
 		iFeedAt = GetIntFromString(Arg, 5000);
+
 		if (iFeedAt < 0)
 		{
 			iFeedAt = 0;
