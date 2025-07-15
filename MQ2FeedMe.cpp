@@ -208,7 +208,7 @@ bool GoodToConsume()
 		&& !WindowOpen("LootWnd")								// not looting
 		&& pLocalPC->pSpawn->StandState != STANDSTATE_FEIGN		// not Feigned
 		&& !bIAmCamping)										// not camping
-	{                                         
+	{
 		return true;
 	}
 
@@ -227,7 +227,7 @@ void ListTypes(const std::list<std::string>& list)
 void Execute(PCHAR zFormat, ...)
 {
 	char zOutput[MAX_STRING]={0}; va_list vaList; va_start(vaList,zFormat);
-	vsprintf_s(zOutput, zFormat, vaList); 
+	vsprintf_s(zOutput, zFormat, vaList);
 
 	if (!zOutput[0])
 	{
@@ -259,8 +259,8 @@ void Consume(uint8_t itemClass, const std::list<std::string>& fLIST)
 		{
 			WriteChatf("\ay%s\aw:: No Food to Consume", PLUGIN_NAME);
 		}
-	} 
-	else 
+	}
+	else
 	{
 		if (bDrinkWarn)
 		{
@@ -390,7 +390,7 @@ void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
 			WriteChatf("\ay%s\aw:: AutoFeed (\ag%s\ax).", PLUGIN_NAME, (iFeedAt) ? Buffer : "\aroff");
 			WriteChatf("\ay%s\aw:: Current Hunger (\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->hungerlevel);
 		}
-	} 
+	}
 	else if (ci_equals(Arg, "warn"))
 	{
 		if (bFoodWarn)
@@ -430,7 +430,7 @@ void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
 			WriteChatf("\ay%s\aw:: Current Thirst (\ag%d\ax) Hunger (\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->thirstlevel, GetPcProfile()->hungerlevel);
 		}
 	}
-	
+
 	GenericCommand(szLine);
 }
 
@@ -493,14 +493,14 @@ void AutoDrinkCmd(PlayerClient* pLPlayer, const char* szLine)
 			WriteChatf("\ay%s\aw:: AutoDrink (\ag%s\ax).", PLUGIN_NAME, (iDrinkAt) ? Buffer : "\aroff");
 			WriteChatf("\ay%s\aw:: Current Thirst (\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->thirstlevel);
 		}
-	} 
+	}
 	else if (ci_equals(Arg, "warn"))
 	{
 		if (bDrinkWarn)
 		{
 			bDrinkWarn = false;
 			WriteChatf("\ay%s\aw:: Drink Warning Off", PLUGIN_NAME);
-		} 
+		}
 		else {
 			bDrinkWarn = true;
 			WriteChatf("\ay%s\aw:: Drink Warning On", PLUGIN_NAME);
@@ -618,14 +618,14 @@ void FeedMeImGuiSettingsPanel()
 	}
 	ImGui::SameLine();
 	mq::imgui::HelpMarker("Announce Levels and Consumption.");
-	
+
 	if (ImGui::Checkbox("Food Warn", &bFoodWarn))
 	{
 		WritePrivateProfileBool("Settings", "FoodWarn", bFoodWarn, INIFileName);
 	}
 	ImGui::SameLine();
 	mq::imgui::HelpMarker("Warn when no food.");
-	
+
 	if (ImGui::Checkbox("Drink Warn", &bFoodWarn))
 	{
 		WritePrivateProfileBool("Settings", "DrinkWarn", bFoodWarn, INIFileName);
