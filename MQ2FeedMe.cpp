@@ -56,6 +56,7 @@ bool          bAnnConsume = true;			// Announce Consumption
 bool          bFoodWarn = false;			// Announce No Food
 bool          bDrinkWarn = false;			// Announce No Drink
 bool		  bIAmCamping = false;			// Defining if we are camping out or not
+bool		  bIgnoreSafeZones = false;		// don't consume in "safe zones"
 
 const char* PLUGIN_NAME = "MQ2FeedMe";
 
@@ -69,6 +70,7 @@ public:
 		Announce,
 		FoodWarn,
 		DrinkWarn,
+		IgnoreSafeZones,
 	};
 
 	MQ2FeedMeType() : MQ2Type("FeedMe") {
@@ -77,6 +79,7 @@ public:
 		TypeMember(Announce);
 		TypeMember(FoodWarn);
 		TypeMember(DrinkWarn);
+		TypeMember(IgnoreSafeZones);
 	};
 
 	//~MQ2FeedMeType()
@@ -117,6 +120,10 @@ public:
 				Dest.DWord = bDrinkWarn;
 				Dest.Type = pBoolType;
 				return true;
+			case IgnoreSafeZones:
+				Dest.DWord = bIgnoreSafeZones;
+				Dest.Type = pBoolType;
+				return true;
 			default:
 				break;
 			}
@@ -148,6 +155,82 @@ bool dataFeedMe(const char* szIndex, MQTypeVar& Dest)
 	Dest.DWord = 1;
 	Dest.Type = pFeedMeType;
 	return true;
+}
+
+enum SafeZoneID : int {
+	Zone_cshome = 26,
+	Zone_bazaar = 151,
+	Zone_poknowledge = 202,
+	Zone_guildlobby = 344,
+	Zone_guildhall = 345,
+	Zone_crescent = 394,
+	Zone_neighborhood = 712,
+	Zone_phinterior3a1 = 714,
+	Zone_phinterior1a1 = 715,
+	Zone_phinterior3a2 = 716,
+	Zone_phinterior3a3 = 717,
+	Zone_phinterior1a2 = 718,
+	Zone_phinterior1a3 = 719,
+	Zone_phinterior1b1 = 720,
+	Zone_phinterior1d1 = 723,
+	Zone_phinteriortree = 766,
+	Zone_interiorwalltest = 767,
+	Zone_guildhalllrg = 737, // Grand
+	Zone_guildhallsml = 738, // Greater
+	Zone_plhogrinteriors1a1 = 739,
+	Zone_plhogrinteriors1a2 = 740,
+	Zone_plhogrinteriors3a1 = 741,
+	Zone_plhogrinteriors3a2 = 742,
+	Zone_plhogrinteriors3b1 = 743,
+	Zone_plhogrinteriors3b2 = 744,
+	Zone_plhdkeinteriors1a1 = 745,
+	Zone_plhdkeinteriors1a2 = 746,
+	Zone_plhdkeinteriors1a3 = 747,
+	Zone_plhdkeinteriors3a1 = 748,
+	Zone_plhdkeinteriors3a2 = 749,
+	Zone_plhdkeinteriors3a3 = 750,
+	Zone_guildhall3 = 751,
+};
+
+bool IsSafeZone(const int iZoneID)
+{
+	switch (iZoneID) {
+		case SafeZoneID::Zone_cshome:
+		case SafeZoneID::Zone_bazaar:
+		case SafeZoneID::Zone_poknowledge:
+		case SafeZoneID::Zone_guildlobby:
+		case SafeZoneID::Zone_guildhall:
+		case SafeZoneID::Zone_crescent:
+		case SafeZoneID::Zone_neighborhood:
+		case SafeZoneID::Zone_phinterior3a1:
+		case SafeZoneID::Zone_phinterior1a1:
+		case SafeZoneID::Zone_phinterior3a2:
+		case SafeZoneID::Zone_phinterior3a3:
+		case SafeZoneID::Zone_phinterior1a2:
+		case SafeZoneID::Zone_phinterior1a3:
+		case SafeZoneID::Zone_phinterior1b1:
+		case SafeZoneID::Zone_phinterior1d1:
+		case SafeZoneID::Zone_phinteriortree:
+		case SafeZoneID::Zone_interiorwalltest:
+		case SafeZoneID::Zone_guildhalllrg:
+		case SafeZoneID::Zone_guildhallsml:
+		case SafeZoneID::Zone_plhogrinteriors1a1:
+		case SafeZoneID::Zone_plhogrinteriors1a2:
+		case SafeZoneID::Zone_plhogrinteriors3a1:
+		case SafeZoneID::Zone_plhogrinteriors3a2:
+		case SafeZoneID::Zone_plhogrinteriors3b1:
+		case SafeZoneID::Zone_plhogrinteriors3b2:
+		case SafeZoneID::Zone_plhdkeinteriors1a1:
+		case SafeZoneID::Zone_plhdkeinteriors1a2:
+		case SafeZoneID::Zone_plhdkeinteriors1a3:
+		case SafeZoneID::Zone_plhdkeinteriors3a1:
+		case SafeZoneID::Zone_plhdkeinteriors3a2:
+		case SafeZoneID::Zone_plhdkeinteriors3a3:
+		case SafeZoneID::Zone_guildhall3:
+			return true;
+		default:
+			return false;
+	}
 }
 
 bool WindowOpen(PCHAR WindowName)
@@ -193,6 +276,7 @@ void ReadList(std::list<std::string>* MyList, PCHAR fSec)
 bool GoodToConsume()
 {
 	auto pChar2 = GetPcProfile();
+	int iZoneID = pLocalPlayer->GetZoneID() & 0x7FFF;
 
 	if(GetGameState() == GAMESTATE_INGAME						// currently ingame
 		&& pLocalPC												// have Charinfo
@@ -207,6 +291,7 @@ bool GoodToConsume()
 		&& !WindowOpen("BigBankWnd") && !WindowOpen("BankWnd")	// not banking
 		&& !WindowOpen("LootWnd")								// not looting
 		&& pLocalPC->pSpawn->StandState != STANDSTATE_FEIGN		// not Feigned
+		&& (bIgnoreSafeZones ? !IsSafeZone(iZoneID) : true)		// if we are ignoring safe zones, make sure we're not in one
 		&& !bIAmCamping)										// not camping
 	{
 		return true;
@@ -599,6 +684,7 @@ PLUGIN_API void SetGameState(const int GameState)
 			WritePrivateProfileString("Settings", "Announce", bAnnLevels ? "1" : "0", INIFileName);
 			WritePrivateProfileString("Settings", "FoodWarn", bFoodWarn ? "1" : "0", INIFileName);
 			WritePrivateProfileString("Settings", "DrinkWarn", bDrinkWarn ? "1" : "0", INIFileName);
+			WritePrivateProfileString("Settings", "IgnoreSafeZones", bIgnoreSafeZones ? "1" : "0", INIFileName);
 
 			if (!Loaded)
 			{
@@ -618,6 +704,13 @@ void FeedMeImGuiSettingsPanel()
 	}
 	ImGui::SameLine();
 	mq::imgui::HelpMarker("Announce Levels and Consumption.");
+
+	if (ImGui::Checkbox("IgnoreSafeZones", &bIgnoreSafeZones))
+	{
+		WritePrivateProfileBool("Settings", "IgnoreSafeZones", bIgnoreSafeZones, INIFileName);
+	}
+	ImGui::SameLine();
+	mq::imgui::HelpMarker("Ignore Safe Zones like poknowledge or guild lobby for auto consumption.");
 
 	if (ImGui::Checkbox("Food Warn", &bFoodWarn))
 	{
