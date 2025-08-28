@@ -47,7 +47,6 @@ bool         Loaded = false;                // List Loaded?
 
 int          iFeedAt = 0;                   // Feed Level
 int          iDrinkAt = 0;                  // Drink Level
-char         Buffer[16] = {0};
 std::list<std::string> Hunger;              // Hunger Fix List
 std::list<std::string> Thirst;              // Thirst Fix List
 
@@ -469,8 +468,7 @@ void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
 
 		if (bAnnLevels)
 		{
-			sprintf_s(Buffer, "%d", iFeedAt);
-			WriteChatf("\ay%s\aw:: AutoFeed (\ag%s\ax).", PLUGIN_NAME, (iFeedAt) ? Buffer : "\aroff");
+			WriteChatf("\ay%s\aw:: AutoFeed (\ag%s\ax).", PLUGIN_NAME, (iFeedAt) ? std::to_string(iFeedAt).c_str() : "\aroff");
 			WriteChatf("\ay%s\aw:: Current Hunger (\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->hungerlevel);
 		}
 	}
@@ -504,9 +502,8 @@ void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
 			iFeedAt = 5000;
 		}
 
-		sprintf_s(Buffer, "%d", iFeedAt);
-		WritePrivateProfileString(GetCharInfo()->Name, "AutoFeed", Buffer, INIFileName);
-		WriteChatf("\ay%s\aw:: AutoFeed (\ag%s\ax).", PLUGIN_NAME, (iFeedAt) ? Buffer : "\aroff");
+		WritePrivateProfileInt(GetCharInfo()->Name, "AutoFeed", iFeedAt, INIFileName);
+		WriteChatf("\ay%s\aw:: AutoFeed (\ag%s\ax).", PLUGIN_NAME, iFeedAt ? std::to_string(iFeedAt).c_str() : "\aroff");
 
 		if (bAnnLevels)
 		{
@@ -572,8 +569,7 @@ void AutoDrinkCmd(PlayerClient* pLPlayer, const char* szLine)
 		ListTypes(Thirst);
 		if (bAnnLevels)
 		{
-			sprintf_s(Buffer, "%d", iDrinkAt);
-			WriteChatf("\ay%s\aw:: AutoDrink (\ag%s\ax).", PLUGIN_NAME, (iDrinkAt) ? Buffer : "\aroff");
+			WriteChatf("\ay%s\aw:: AutoDrink (\ag%s\ax).", PLUGIN_NAME, iDrinkAt ? std::to_string(iDrinkAt).c_str() : "\aroff");
 			WriteChatf("\ay%s\aw:: Current Thirst (\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->thirstlevel);
 		}
 	}
@@ -604,9 +600,9 @@ void AutoDrinkCmd(PlayerClient* pLPlayer, const char* szLine)
 		{
 			iDrinkAt = 5000;
 		}
-		sprintf_s(Buffer, "%d", iDrinkAt);
-		WritePrivateProfileString(GetCharInfo()->Name, "AutoDrink", Buffer, INIFileName);
-		WriteChatf("\ay%s\aw:: AutoDrink (\ag%s\ax).", PLUGIN_NAME, iDrinkAt ? Buffer :"\aroff");
+
+		WritePrivateProfileInt(GetCharInfo()->Name, "AutoDrink", iDrinkAt, INIFileName);
+		WriteChatf("\ay%s\aw:: AutoDrink (\ag%s\ax).", PLUGIN_NAME, iDrinkAt ? std::to_string(iDrinkAt).c_str() : "\aroff");
 
 		if (bAnnLevels)
 		{
