@@ -73,21 +73,18 @@ public:
 		IgnoreSafeZones,
 	};
 
-	MQ2FeedMeType() : MQ2Type("FeedMe") {
-		TypeMember(FeedAt);
-		TypeMember(DrinkAt);
-		TypeMember(Announce);
-		TypeMember(FoodWarn);
-		TypeMember(DrinkWarn);
-		TypeMember(IgnoreSafeZones);
+	MQ2FeedMeType() : MQ2Type("FeedMe")
+	{
+		ScopedTypeMember(FeedMeMembers, FeedAt);
+		ScopedTypeMember(FeedMeMembers, DrinkAt);
+		ScopedTypeMember(FeedMeMembers, Announce);
+		ScopedTypeMember(FeedMeMembers, FoodWarn);
+		ScopedTypeMember(FeedMeMembers, DrinkWarn);
+		ScopedTypeMember(FeedMeMembers, IgnoreSafeZones);
 	};
 
-	//~MQ2FeedMeType()
-	//{
-	//}
-
-	//virtual bool GetMember(MQVarPtr VarPtr, const char* Member, char* Index, MQTypeVar& Dest) override
-	bool MQ2FeedMeType::GetMember(MQVarPtr VarPtr, const char* Member, char* Index, MQTypeVar& Dest) {
+	virtual bool GetMember(MQVarPtr VarPtr, const char* Member, char* Index, MQTypeVar& Dest) override
+	{
 		MQTypeMember* pMember = MQ2FeedMeType::FindMember(Member);
 		if (!pMember)
 		{
@@ -99,30 +96,31 @@ public:
 			return false;
 		}
 
-		switch ((FeedMeMembers)pMember->ID) {
+		switch ((FeedMeMembers)pMember->ID)
+		{
 			case FeedAt:
 				Dest.Int = iFeedAt;
-				Dest.Type = pIntType;
+				Dest.Type = mq::datatypes::pIntType;
 				return true;
 			case DrinkAt:
 				Dest.Int = iDrinkAt;
-				Dest.Type = pIntType;
+				Dest.Type = mq::datatypes::pIntType;
 				return true;
 			case Announce:
 				Dest.DWord = bAnnConsume;
-				Dest.Type = pBoolType;
+				Dest.Type = mq::datatypes::pBoolType;
 				return true;
 			case FoodWarn:
 				Dest.DWord = bFoodWarn;
-				Dest.Type = pBoolType;
+				Dest.Type = mq::datatypes::pBoolType;
 				return true;
 			case DrinkWarn:
 				Dest.DWord = bDrinkWarn;
-				Dest.Type = pBoolType;
+				Dest.Type = mq::datatypes::pBoolType;
 				return true;
 			case IgnoreSafeZones:
 				Dest.DWord = bIgnoreSafeZones;
-				Dest.Type = pBoolType;
+				Dest.Type = mq::datatypes::pBoolType;
 				return true;
 			default:
 				break;
@@ -130,17 +128,17 @@ public:
 		return false;
 	}
 
-	bool MQ2FeedMeType::ToString(MQVarPtr VarPtr, char* Destination)
+	bool ToString(MQVarPtr VarPtr, const char* Destination)
 	{
 		return true;
 	}
 
-	bool MQ2FeedMeType::FromData(const MQVarPtr& VarPtr, MQTypeVar& Source)
+	bool FromData(const MQVarPtr& VarPtr, MQTypeVar& Source)
 	{
 		return false;
 	}
 
-	bool MQ2FeedMeType::FromString(MQVarPtr& VarPtr, const char* Source)
+	bool FromString(MQVarPtr& VarPtr, const char* Source)
 	{
 		return false;
 	}
@@ -149,7 +147,6 @@ public:
 
 MQ2FeedMeType* pFeedMeType = nullptr;
 
-//bool TrophyData(const char* szIndex, MQTypeVar& Dest)
 bool dataFeedMe(const char* szIndex, MQTypeVar& Dest)
 {
 	Dest.DWord = 1;
@@ -803,6 +800,8 @@ PLUGIN_API void InitializePlugin()
 	AddCommand("/autodrink", AutoDrinkCmd);
 
 	AddSettingsPanel("plugins/FeedMe", FeedMeImGuiSettingsPanel);
+	pFeedMeType = new MQ2FeedMeType;
+	AddMQ2Data("FeedMe", dataFeedMe);
 }
 
 PLUGIN_API void ShutdownPlugin()
@@ -811,4 +810,6 @@ PLUGIN_API void ShutdownPlugin()
 	RemoveCommand("/autodrink");
 
 	RemoveSettingsPanel("plugins/FeedMe");
+	delete pFeedMeType;
+	RemoveMQ2Data("FeedMe");
 }
