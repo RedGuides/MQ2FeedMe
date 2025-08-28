@@ -666,10 +666,10 @@ PLUGIN_API void SetGameState(const int GameState)
 		{
 			iDrinkAt     = GetPrivateProfileInt(pLocalPC->Name, "AutoDrink", 0, INIFileName);
 			iFeedAt     = GetPrivateProfileInt(pLocalPC->Name, "AutoFeed",  0, INIFileName);
-			bAnnLevels = GetPrivateProfileInt("Settings",          "Announce",  1, INIFileName) != 0;
-			bAnnConsume = GetPrivateProfileInt("Settings",         "Announce", 1, INIFileName) != 0;
-			bFoodWarn  = GetPrivateProfileInt("Settings",          "FoodWarn",  0, INIFileName) != 0;
-			bDrinkWarn = GetPrivateProfileInt("Settings",          "DrinkWarn",  0, INIFileName) != 0;
+			bAnnLevels = GetPrivateProfileInt("Settings", "Announce",  1, INIFileName) != 0;
+			bAnnConsume = GetPrivateProfileInt("Settings", "Announce", 1, INIFileName) != 0;
+			bFoodWarn  = GetPrivateProfileInt("Settings", "FoodWarn",  0, INIFileName) != 0;
+			bDrinkWarn = GetPrivateProfileInt("Settings", "DrinkWarn",  0, INIFileName) != 0;
 
 			WritePrivateProfileString("Settings", "Announce", bAnnLevels ? "1" : "0", INIFileName);
 			WritePrivateProfileString("Settings", "FoodWarn", bFoodWarn ? "1" : "0", INIFileName);
