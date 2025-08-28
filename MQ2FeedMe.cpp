@@ -62,7 +62,7 @@ const char* PLUGIN_NAME = "MQ2FeedMe";
 class MQ2FeedMeType : public MQ2Type
 {
 public:
-	enum FeedMeMembers
+	enum class FeedMeMembers
 	{
 		FeedAt,
 		DrinkAt,
@@ -92,27 +92,27 @@ public:
 
 		switch ((FeedMeMembers)pMember->ID)
 		{
-			case FeedAt:
+			case FeedMeMembers::FeedAt:
 				Dest.Int = iFeedAt;
 				Dest.Type = mq::datatypes::pIntType;
 				return true;
-			case DrinkAt:
+			case FeedMeMembers::DrinkAt:
 				Dest.Int = iDrinkAt;
 				Dest.Type = mq::datatypes::pIntType;
 				return true;
-			case Announce:
+			case FeedMeMembers::Announce:
 				Dest.DWord = bAnnConsume;
 				Dest.Type = mq::datatypes::pBoolType;
 				return true;
-			case FoodWarn:
+			case FeedMeMembers::FoodWarn:
 				Dest.DWord = bFoodWarn;
 				Dest.Type = mq::datatypes::pBoolType;
 				return true;
-			case DrinkWarn:
+			case FeedMeMembers::DrinkWarn:
 				Dest.DWord = bDrinkWarn;
 				Dest.Type = mq::datatypes::pBoolType;
 				return true;
-			case IgnoreSafeZones:
+			case FeedMeMembers::IgnoreSafeZones:
 				Dest.DWord = bIgnoreSafeZones;
 				Dest.Type = mq::datatypes::pBoolType;
 				return true;
