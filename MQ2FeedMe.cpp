@@ -321,7 +321,8 @@ void Execute(PCHAR zFormat, ...)
 
 void Consume(uint8_t itemClass, const std::list<std::string>& fLIST)
 {
-	for (const std::string& name : fLIST) {
+	for (const std::string& name : fLIST)
+	{
 		ItemPtr pItem = FindItemByName(name.c_str(), true);
 		if (pItem && pItem->GetItemClass() == itemClass)
 		{
