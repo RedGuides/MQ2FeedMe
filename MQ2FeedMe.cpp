@@ -91,11 +91,6 @@ public:
 			return false;
 		}
 
-		if (!pLocalPlayer)
-		{
-			return false;
-		}
-
 		switch ((FeedMeMembers)pMember->ID)
 		{
 			case FeedAt:
