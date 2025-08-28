@@ -661,10 +661,10 @@ PLUGIN_API VOID OnZoned()
 PLUGIN_API void SetGameState(const int GameState)
 {
 	if (GameState == GAMESTATE_INGAME) {
-		if (GetPcProfile())
+		if (pLocalPC)
 		{
-			iDrinkAt     = GetPrivateProfileInt(GetCharInfo()->Name, "AutoDrink", 0, INIFileName);
-			iFeedAt     = GetPrivateProfileInt(GetCharInfo()->Name, "AutoFeed",  0, INIFileName);
+			iDrinkAt     = GetPrivateProfileInt(pLocalPC->Name, "AutoDrink", 0, INIFileName);
+			iFeedAt     = GetPrivateProfileInt(pLocalPC->Name, "AutoFeed",  0, INIFileName);
 			bAnnLevels = GetPrivateProfileInt("Settings",          "Announce",  1, INIFileName) != 0;
 			bAnnConsume = GetPrivateProfileInt("Settings",         "Announce", 1, INIFileName) != 0;
 			bFoodWarn  = GetPrivateProfileInt("Settings",          "FoodWarn",  0, INIFileName) != 0;
