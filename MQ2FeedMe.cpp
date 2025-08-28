@@ -695,7 +695,7 @@ void FeedMeImGuiSettingsPanel()
 	ImGui::SameLine();
 	mq::imgui::HelpMarker("Announce Levels and Consumption.");
 
-	if (ImGui::Checkbox("IgnoreSafeZones", &bIgnoreSafeZones))
+	if (ImGui::Checkbox("Ignore Safezones", &bIgnoreSafeZones))
 	{
 		WritePrivateProfileBool("Settings", "IgnoreSafeZones", bIgnoreSafeZones, INIFileName);
 	}
@@ -716,21 +716,21 @@ void FeedMeImGuiSettingsPanel()
 	ImGui::SameLine();
 	mq::imgui::HelpMarker("Warn when no drink.");
 
-	if (ImGui::InputInt("DrinkAt", &iDrinkAt)) {
+	if (ImGui::InputInt("Consume Drink item at thirst level:", &iDrinkAt)) {
 		iDrinkAt = std::clamp(iDrinkAt, 0, 5000);
 
 		WritePrivateProfileInt("Settings", "AutoDrink", iDrinkAt, INIFileName);
 	}
 	ImGui::SameLine();
-	mq::imgui::HelpMarker("Thirst level to drink.");
+	mq::imgui::HelpMarker("When we reach this thirst value we will consume a drink on your drink list until we are at/above the AutoDrink value.");
 
-	if (ImGui::InputInt("FeedAt", &iFeedAt)) {
+	if (ImGui::InputInt("Consume Food item at hunger level:", &iFeedAt)) {
 		iFeedAt = std::clamp(iFeedAt, 0, 5000);
 
 		WritePrivateProfileInt("Settings", "AutoFeed", iFeedAt, INIFileName);
 	}
 	ImGui::SameLine();
-	mq::imgui::HelpMarker("Hunger level to eat.");
+	mq::imgui::HelpMarker("When we reach this hunger value we will consume food on your drink list until we are at/above the AutoFeed value.");
 
 	const float buttonsize = ImGui::GetWindowSize().x * 0.45f;
 	if (ImGui::Button("Add Food From Cursor", ImVec2(buttonsize, 0)))
@@ -739,7 +739,7 @@ void FeedMeImGuiSettingsPanel()
 	}
 	ImGui::SameLine();
 
-	if (ImGui::Button("Add Drink On Cursor", ImVec2(buttonsize, 0)))
+	if (ImGui::Button("Add Drink From Cursor", ImVec2(buttonsize, 0)))
 	{
 		HandleFoodDrinkItem();
 	}
