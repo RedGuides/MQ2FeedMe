@@ -124,7 +124,7 @@ public:
 				return true;
 			default:
 				break;
-			}
+		}
 		return false;
 	}
 
@@ -273,6 +273,12 @@ void ReadList(std::list<std::string>* MyList, PCHAR fSec)
 bool GoodToConsume()
 {
 	auto pChar2 = GetPcProfile();
+
+	if (!pLocalPlayer)
+	{
+		return false;
+	}
+
 	int iZoneID = pLocalPlayer->GetZoneID() & 0x7FFF;
 
 	if(GetGameState() == GAMESTATE_INGAME						// currently ingame
