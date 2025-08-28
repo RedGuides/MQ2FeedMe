@@ -671,10 +671,10 @@ PLUGIN_API void SetGameState(const int GameState)
 			bFoodWarn  = GetPrivateProfileInt("Settings", "FoodWarn",  0, INIFileName) != 0;
 			bDrinkWarn = GetPrivateProfileInt("Settings", "DrinkWarn",  0, INIFileName) != 0;
 
-			WritePrivateProfileString("Settings", "Announce", bAnnLevels ? "1" : "0", INIFileName);
-			WritePrivateProfileString("Settings", "FoodWarn", bFoodWarn ? "1" : "0", INIFileName);
-			WritePrivateProfileString("Settings", "DrinkWarn", bDrinkWarn ? "1" : "0", INIFileName);
-			WritePrivateProfileString("Settings", "IgnoreSafeZones", bIgnoreSafeZones ? "1" : "0", INIFileName);
+			WritePrivateProfileInt("Settings", "Announce", bAnnLevels ? 1 : 0, INIFileName);
+			WritePrivateProfileInt("Settings", "FoodWarn", bFoodWarn ? 1 : 0, INIFileName);
+			WritePrivateProfileInt("Settings", "DrinkWarn", bDrinkWarn ? 1 : 0, INIFileName);
+			WritePrivateProfileInt("Settings", "IgnoreSafeZones", bIgnoreSafeZones ? 1 : 0, INIFileName);
 
 			if (!Loaded)
 			{
