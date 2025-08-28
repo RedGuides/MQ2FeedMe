@@ -733,13 +733,13 @@ void FeedMeImGuiSettingsPanel()
 	mq::imgui::HelpMarker("When we reach this hunger value we will consume food on your drink list until we are at/above the AutoFeed value.");
 
 	const float buttonsize = ImGui::GetWindowSize().x * 0.45f;
-	if (ImGui::Button("Add Food From Cursor", ImVec2(buttonsize, 0)))
+	if (ImGui::Button("Add Food Currently on Cursor", ImVec2(buttonsize, 0)))
 	{
 		HandleFoodDrinkItem();
 	}
 	ImGui::SameLine();
 
-	if (ImGui::Button("Add Drink From Cursor", ImVec2(buttonsize, 0)))
+	if (ImGui::Button("Add Drink Currently on Cursor", ImVec2(buttonsize, 0)))
 	{
 		HandleFoodDrinkItem();
 	}
