@@ -273,7 +273,7 @@ bool GoodToConsume()
 		return false;
 	}
 
-	int iZoneID = pLocalPlayer->GetZoneID() & 0x7FFF;
+	int iZoneID = EQWorldData::GetZoneBaseId(pLocalPlayer->GetZoneID());
 
 	if(GetGameState() == GAMESTATE_INGAME						// currently ingame
 		&& pLocalPC												// have Charinfo
