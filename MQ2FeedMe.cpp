@@ -760,7 +760,7 @@ void FeedMeImGuiSettingsPanel()
 			ImGui::PushID(static_cast<int>(index));
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			ImGui::Text(food.c_str());
+			ImGui::TextUnformatted(food.c_str());
 			ImGui::PopID();
 			index++;
 		}
@@ -781,7 +781,7 @@ void FeedMeImGuiSettingsPanel()
 			ImGui::PushID(static_cast<int>(index));
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			ImGui::Text(drink.c_str());
+			ImGui::TextUnformatted(drink.c_str());
 			ImGui::PopID();
 			index++;
 		}
