@@ -700,7 +700,7 @@ void FeedMeImGuiSettingsPanel()
 		WritePrivateProfileBool("Settings", "IgnoreSafeZones", bIgnoreSafeZones, INIFileName);
 	}
 	ImGui::SameLine();
-	mq::imgui::HelpMarker("Ignore Safe Zones like poknowledge or guild lobby for auto consumption.");
+	mq::imgui::HelpMarker("Ignore Safe Zones like \"poknowledge\" or \"guildlobby\" for auto consumption.");
 
 	if (ImGui::Checkbox("Warning: No Food", &bFoodWarn))
 	{
