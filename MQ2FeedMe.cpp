@@ -43,28 +43,28 @@
 PreSetup("MQ2FeedMe");
 PLUGIN_VERSION(4.2);
 
-bool         Loaded = false;				// List Loaded?
+bool         Loaded = false;                // List Loaded?
 
-int			 iFeedAt = 0;					// Feed Level
-int			 iDrinkAt = 0;					// Drink Level
+int          iFeedAt = 0;                   // Feed Level
+int          iDrinkAt = 0;                  // Drink Level
 char         Buffer[16] = {0};
-std::list<std::string> Hunger;				// Hunger Fix List
-std::list<std::string> Thirst;				// Thirst Fix List
+std::list<std::string> Hunger;              // Hunger Fix List
+std::list<std::string> Thirst;              // Thirst Fix List
 
-bool          bAnnLevels = true;			// Announce Levels
-bool          bAnnConsume = true;			// Announce Consumption
-bool          bFoodWarn = false;			// Announce No Food
-bool          bDrinkWarn = false;			// Announce No Drink
-bool		  bIAmCamping = false;			// Defining if we are camping out or not
-bool		  bIgnoreSafeZones = false;		// don't consume in "safe zones"
+bool          bAnnLevels = true;            // Announce Levels
+bool          bAnnConsume = true;           // Announce Consumption
+bool          bFoodWarn = false;            // Announce No Food
+bool          bDrinkWarn = false;           // Announce No Drink
+bool          bIAmCamping = false;          // Defining if we are camping out or not
+bool          bIgnoreSafeZones = false;     // don't consume in "safe zones"
 
 const char* PLUGIN_NAME = "MQ2FeedMe";
 
-using namespace mq::datatypes;
-
-class MQ2FeedMeType : public MQ2Type {
+class MQ2FeedMeType : public MQ2Type
+{
 public:
-	enum FeedMeMembers {
+	enum FeedMeMembers
+	{
 		FeedAt,
 		DrinkAt,
 		Announce,
