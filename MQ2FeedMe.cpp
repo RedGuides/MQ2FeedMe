@@ -403,11 +403,6 @@ void HandleFoodDrinkItem()
 			WritePrivateProfileString("Drink", fmt::format("Drink{}", DrinkIndex), pItem->GetName(), INIFileName);
 			Thirst.push_back(pItem->GetName());
 		}
-		else if (!pItem->GetItemDefinition()->FoodDuration)
-		{
-			WriteChatf("%s:: \ar%s does not have a food duration.", PLUGIN_NAME, pItem->GetName());
-			return;
-		}
 		else
 		{
 			WriteChatf("%s:: \arWe don't know what to do with %s.", PLUGIN_NAME, pItem->GetName());
