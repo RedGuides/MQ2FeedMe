@@ -499,6 +499,29 @@ void GenericCommand(const char* szLine)
 			WriteChatf("\ay%s\aw::Consumption Notification On", PLUGIN_NAME);
 		}
 	}
+	else if (ci_equals(Arg, "IgnoreSafeZones"))
+	{
+
+		char NextArg[MAX_STRING] = { 0 };
+		strcpy_s(NextArg, GetNextArg(szLine));
+
+		if (NextArg[0] != '\0')
+		{
+			if (ci_equals(NextArg, "on"))
+			{
+				bIgnoreSafeZones = true;
+			}
+			else if (ci_equals(NextArg, "off"))
+			{
+				bIgnoreSafeZones = false;
+			}
+			else {
+				WriteChatf("\ay%s\aw:: \ar%s\ax is an invalid option.", PLUGIN_NAME, NextArg);
+			}
+			WritePrivateProfileInt("Settings", "IgnoreSafeZones", bIgnoreSafeZones ? 1 : 0, INIFileName);
+		}
+		WriteChatf("\ay%s\aw:: IgnoreSafeZones (\ag%s\ax).", PLUGIN_NAME, bIgnoreSafeZones ? "\agOn" : "\arOff");
+	}
 	else if (!_stricmp("ui", Arg) || !_stricmp("gui", Arg))
 	{
 		DoCommand("/mqsettings plugins/feedme");
@@ -813,8 +836,17 @@ void FeedMeImGuiSettingsPanel()
 		HandleAddFoodDrinkItem();
 	}
 
-	ImGui::SetWindowFontScale(0.75f); // make it small
-	ImGui::TextUnformatted("Double click to delete an item from the list.");
+	ImGui::SetWindowFontScale(0.80f); // make it small
+	float columnWidth = ImGui::GetColumnWidth();
+	const char* text = "Double click to delete an item from the list.";
+	ImVec2 textSize = ImGui::CalcTextSize(text);
+
+	float offset = (columnWidth - textSize.x) * 0.5f;
+	if (offset > 0.0f)
+	{
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset);
+	}
+	ImGui::TextUnformatted(text);
 	ImGui::SetWindowFontScale(1.0f); // set it back
 
 	ImGui::BeginChild("FoodChild", ImVec2(0, 150), true);
