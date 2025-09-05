@@ -451,24 +451,28 @@ void HandleRemoveFoodDrinkItem(const char* type, const char* item)
 		targetVector->erase(it);
 	}
 
-	// update ini with our vector of drinks
-	for (int i = 0; i < static_cast<int>(targetVector->size()); ++i)
-	{
-		WritePrivateProfileString(sectionName.c_str(),
-			fmt::format("{}{}",
-				sectionName,
-				i).c_str(),
-			(*targetVector)[i].c_str(),
-			INIFileName);
-	}
 
-	// Delete any additional keys that exist
-	// this does an arbitrary check 10 past the vector size
-	// adding a function to count ini section keys seems a bit excessive
-	for (int i = static_cast<int>(targetVector->size()); i < static_cast<int>(targetVector->size()) + 10; ++i)
+	// update ini with our vector of drinks
+	if (targetVector)
 	{
-		std::string keyName = fmt::format("{}{}", sectionName, i);
-		WritePrivateProfileString(sectionName.c_str(), keyName.c_str(), NULL, INIFileName);
+		for (int i = 0; i < static_cast<int>(targetVector->size()); ++i)
+		{
+			WritePrivateProfileString(sectionName.c_str(),
+				fmt::format("{}{}",
+					sectionName,
+					i).c_str(),
+				(*targetVector)[i].c_str(),
+				INIFileName);
+		}
+
+		// Delete any additional keys that exist
+		// this does an arbitrary check 10 past the vector size
+		// adding a function to count ini section keys seems a bit excessive
+		for (int i = static_cast<int>(targetVector->size()); i < static_cast<int>(targetVector->size()) + 10; ++i)
+		{
+			std::string keyName = fmt::format("{}{}", sectionName, i);
+			WritePrivateProfileString(sectionName.c_str(), keyName.c_str(), NULL, INIFileName);
+		}
 	}
 }
 
