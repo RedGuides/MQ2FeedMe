@@ -47,15 +47,15 @@ bool         Loaded = false;                // List Loaded?
 
 int          iFeedAt = 0;                   // Feed Level
 int          iDrinkAt = 0;                  // Drink Level
-std::list<std::string> Hunger;              // Hunger Fix List
-std::list<std::string> Thirst;              // Thirst Fix List
+std::vector<std::string> vFoodList;         // Hunger Fix List
+std::vector<std::string> vDrinkList;        // Thirst Fix List
 
 bool          bAnnLevels = true;            // Announce Levels
 bool          bAnnConsume = true;           // Announce Consumption
 bool          bFoodWarn = false;            // Announce No Food
 bool          bDrinkWarn = false;           // Announce No Drink
 bool          bIAmCamping = false;          // Defining if we are camping out or not
-bool          bIgnoreSafeZones = false;     // don't consume in "safe zones"
+bool          bIgnoreSafeZones = false;     // Don't consume in "safe zones"
 
 const char* PLUGIN_NAME = "MQ2FeedMe";
 
@@ -240,27 +240,32 @@ bool AbilityInUse()
 	return pLocalPlayer && pLocalPlayer->CastingData.SpellETA != 0;
 }
 
-void ReadList(std::list<std::string>* MyList, PCHAR fSec)
-{
-	char Buffer[MAX_STRING*10];
-	MyList->clear();
+void PopulateVectorFromINISection(std::vector<std::string>&vVector, const char* section) {
+	vVector.clear(); // clear the vector to ensure we're not duplicating
 
-	if(GetPrivateProfileString(fSec, NULL, "", Buffer, MAX_STRING * 10 , INIFileName))
+	char keys[64] = { 0 };
+	GetPrivateProfileStringA(
+		section,    // section name
+		NULL,         // get all keys
+		"",           // default
+		keys,         // buffer
+		sizeof(keys), // buffer size
+		INIFileName
+	);
+
+	// Walk through null-delimited list of keys
+	for (const char* key = keys; *key; key += strlen(key) + 1)
 	{
-		char  szTemp[MAX_STRING];
-		char* pBuffer = Buffer;
-
-		while (pBuffer[0] !=0 )
-
-		{
-			GetPrivateProfileString(fSec, pBuffer, "", szTemp, MAX_STRING, INIFileName);
-			if (szTemp[0] != 0)
-			{
-				MyList->push_back(std::string(szTemp));
-			}
-
-			pBuffer += strlen(pBuffer) + 1;
-		}
+		char value[64];
+		GetPrivateProfileStringA(
+			section,
+			key,
+			"",
+			value,
+			sizeof(value),
+			INIFileName
+		);
+		vVector.push_back(value);
 	}
 }
 
@@ -297,10 +302,10 @@ bool GoodToConsume()
 	return false;
 }
 
-void ListTypes(const std::list<std::string>& list)
+void ListTypes(const std::vector<std::string>& vVector)
 {
 	int i = 1;
-	for (const std::string& value : list)
+	for (const std::string& value : vVector)
 	{
 		WriteChatf("\ag - %d. \aw%s", i++, value.c_str());
 	}
@@ -319,9 +324,9 @@ void Execute(PCHAR zFormat, ...)
 	DoCommand(zOutput);
 }
 
-void Consume(uint8_t itemClass, const std::list<std::string>& fLIST)
+void Consume(uint8_t itemClass, std::vector<std::string> &vVector)
 {
-	for (const std::string& name : fLIST)
+	for (const std::string& name : vVector)
 	{
 		ItemPtr pItem = FindItemByName(name.c_str(), true);
 		if (pItem && pItem->GetItemClass() == itemClass)
@@ -352,7 +357,7 @@ void Consume(uint8_t itemClass, const std::list<std::string>& fLIST)
 	}
 }
 
-void HandleFoodDrinkItem()
+void HandleAddFoodDrinkItem()
 {
 	if (!ItemOnCursor())
 	{
@@ -374,9 +379,9 @@ void HandleFoodDrinkItem()
 		auto pItemClass = pItem->GetItemClass();
 		if (pItemClass == ItemClass_Food)
 		{
-			int FoodIndex = static_cast<int>(Hunger.size()) + 1;
+			int FoodIndex = static_cast<int>(vFoodList.size()) + 1;
 
-			for (const std::string& itemName : Hunger)
+			for (const std::string& itemName : vFoodList)
 			{
 				if (ci_equals(itemName, pItem->GetName()))
 				{
@@ -386,13 +391,13 @@ void HandleFoodDrinkItem()
 			}
 
 			WritePrivateProfileString("Food", fmt::format("Food{}", FoodIndex), pItem->GetName(), INIFileName);
-			Hunger.push_back(pItem->GetName());
+			vFoodList.push_back(pItem->GetName());
 		}
 		else if (pItemClass == ItemClass_Drink)
 		{
-			int DrinkIndex = static_cast<int>(Thirst.size()) + 1;
+			int DrinkIndex = static_cast<int>(vDrinkList.size()) + 1;
 
-			for (const std::string& itemName : Thirst)
+			for (const std::string& itemName : vDrinkList)
 			{
 				if (ci_equals(itemName, pItem->GetName()))
 				{
@@ -402,7 +407,7 @@ void HandleFoodDrinkItem()
 			}
 
 			WritePrivateProfileString("Drink", fmt::format("Drink{}", DrinkIndex), pItem->GetName(), INIFileName);
-			Thirst.push_back(pItem->GetName());
+			vDrinkList.push_back(pItem->GetName());
 		}
 		else
 		{
