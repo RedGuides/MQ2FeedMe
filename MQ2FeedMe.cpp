@@ -662,27 +662,28 @@ void AutoDrinkCmd(PlayerClient* pLPlayer, const char* szLine)
 
 PLUGIN_API void OnPulse()
 {
-	static int Pulses = 0;
-	if (++Pulses < 50)
+	static std::chrono::steady_clock::time_point PulseTimer = std::chrono::steady_clock::now();
+	// let's slow it down and only check every second
+	if (std::chrono::steady_clock::now() > PulseTimer)
 	{
-		return;
-	}
 
-	Pulses = 0;
+		if (!GoodToConsume())
+		{
+			return;
+		}
 
-	if (!GoodToConsume())
-	{
-		return;
-	}
+		if (iDrinkAt && GetPcProfile()->thirstlevel < iDrinkAt)
+		{
+			Consume(ItemClass_Drink, vDrinkList);
+		}
 
-	if (iDrinkAt && GetPcProfile()->thirstlevel < iDrinkAt)
-	{
-		Consume(ItemClass_Drink, vDrinkList);
-	}
+		if (iFeedAt && GetPcProfile()->hungerlevel < iFeedAt)
+		{
+			Consume(ItemClass_Food, vFoodList);
+		}
 
-	if (iFeedAt && GetPcProfile()->hungerlevel < iFeedAt)
-	{
-		Consume(ItemClass_Food, vFoodList);
+		// Wait 1 second before running again
+		PulseTimer = std::chrono::steady_clock::now() + std::chrono::seconds(1);
 	}
 }
 
