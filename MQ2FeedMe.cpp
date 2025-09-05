@@ -420,6 +420,58 @@ void HandleAddFoodDrinkItem()
 	}
 }
 
+void HandleRemoveFoodDrinkItem(const char* type, const char* item)
+{
+	if (!type)
+	{
+		return;
+	}
+
+	std::vector<std::string>* targetVector = nullptr;
+	std::string sectionName;
+
+	if (ci_equals(type, "drink"))
+	{
+		targetVector = &vDrinkList;
+		sectionName = "Drink";
+	}
+	else if (ci_equals(type, "food"))
+	{
+		targetVector = &vFoodList;
+		sectionName = "Food";
+	}
+
+	auto it = std::find_if(targetVector->begin(), targetVector->end(),
+		[item](const std::string& vectorItem) {
+			return ci_equals(item, vectorItem);
+		});
+
+	if (it != targetVector->end())
+	{
+		targetVector->erase(it);
+	}
+
+	// update ini with our vector of drinks
+	for (int i = 0; i < static_cast<int>(targetVector->size()); ++i)
+	{
+		WritePrivateProfileString(sectionName.c_str(),
+			fmt::format("{}{}",
+				sectionName,
+				i).c_str(),
+			(*targetVector)[i].c_str(),
+			INIFileName);
+	}
+
+	// Delete any additional keys that exist
+	// this does an arbitrary check 10 past the vector size
+	// adding a function to count ini section keys seems a bit excessive
+	for (int i = static_cast<int>(targetVector->size()); i < static_cast<int>(targetVector->size()) + 10; ++i)
+	{
+		std::string keyName = fmt::format("{}{}", sectionName, i);
+		WritePrivateProfileString(sectionName.c_str(), keyName.c_str(), NULL, INIFileName);
+	}
+}
+
 void GenericCommand(const char* szLine)
 {
 	char Arg[MAX_STRING] = { 0 };
@@ -427,8 +479,8 @@ void GenericCommand(const char* szLine)
 
 	if (ci_equals(Arg, "reload"))
 	{
-		ReadList(&Hunger, "FOOD");
-		ReadList(&Thirst, "DRINK");
+		PopulateVectorFromINISection(vFoodList, "Food");
+		PopulateVectorFromINISection(vDrinkList, "Drink");
 	}
 	else if (ci_equals(Arg, "announceConsume"))
 	{
@@ -455,7 +507,7 @@ void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
 	{
 		if (GoodToConsume())
 		{
-			Consume(ItemClass_Food, Hunger);
+			Consume(ItemClass_Food, vFoodList);
 		}
 		return;
 	}
@@ -465,7 +517,7 @@ void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
 
 	if (ci_equals(Arg, "list")) {
 		WriteChatf("\ay%s\aw:: Listing Food:", PLUGIN_NAME);
-		ListTypes(Hunger);
+		ListTypes(vFoodList);
 
 		if (bAnnLevels)
 		{
@@ -488,7 +540,18 @@ void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
 	}
 	else if (ci_equals(Arg, "add"))
 	{
-		HandleFoodDrinkItem();
+		HandleAddFoodDrinkItem();
+	}
+	else if (ci_equals(Arg, "remove"))
+	{
+		char item[MAX_STRING] = { 0 };
+		strcpy_s(item, GetNextArg(szLine));
+		if (item[0] == '\0')
+		{
+			return;
+		}
+
+		HandleRemoveFoodDrinkItem("food", item);
 	}
 	else if (IsNumber(Arg))
 	{
@@ -515,48 +578,13 @@ void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
 	GenericCommand(szLine);
 }
 
-void AddDrinkItem()
-{
-	if (!ItemOnCursor())
-	{
-		WriteChatf("%s:: \arNeed to have a food item on your cursor to do this.", PLUGIN_NAME);
-		return;
-	}
-
-	ItemPtr pItem = GetPcProfile()->GetInventorySlot(InvSlot_Cursor);
-	if (pItem)
-	{
-		if (!pItem->GetItemDefinition()->FoodDuration || pItem->GetItemClass() != ItemClass_Drink)
-		{
-			WriteChatf("%s:: \arThat's not a drink. Don't be ridiculous", PLUGIN_NAME);
-			return;
-		}
-
-		WriteChatf("%s:: \ayFound Item: \ap%s", PLUGIN_NAME, pItem->GetName());
-		int FoodIndex = static_cast<int>(Thirst.size()) + 1;
-
-		for (const std::string& itemName : Thirst)
-		{
-			if (ci_equals(itemName, pItem->GetName()))
-			{
-				WriteChatf("%s:: \ap%s \aris already on the list", PLUGIN_NAME, pItem->GetName());
-				return;
-			}
-		}
-		WritePrivateProfileString("Drink", fmt::format("Drink{}", FoodIndex), pItem->GetName(), INIFileName);
-		Thirst.push_back(pItem->GetName());
-		DoCommand("/autoinv");
-		WriteChatf("%s \agAdded\aw: \ap%s \ayto your autodrink list", PLUGIN_NAME, pItem->GetName());
-	}
-}
-
 void AutoDrinkCmd(PlayerClient* pLPlayer, const char* szLine)
 {
 	if (!strlen(szLine))
 	{
 		if (GoodToConsume())
 		{
-			Consume(ItemClass_Drink, Thirst);
+			Consume(ItemClass_Drink, vDrinkList);
 		}
 		return;
 	}
@@ -567,7 +595,7 @@ void AutoDrinkCmd(PlayerClient* pLPlayer, const char* szLine)
 	if (ci_equals(Arg, "list"))
 	{
 		WriteChatf("\ay%s\aw:: Listing Drink:", PLUGIN_NAME);
-		ListTypes(Thirst);
+		ListTypes(vDrinkList);
 		if (bAnnLevels)
 		{
 			WriteChatf("\ay%s\aw:: AutoDrink (\ag%s\ax).", PLUGIN_NAME, iDrinkAt ? std::to_string(iDrinkAt).c_str() : "\aroff");
@@ -588,7 +616,19 @@ void AutoDrinkCmd(PlayerClient* pLPlayer, const char* szLine)
 	}
 	else if (ci_equals(Arg, "add"))
 	{
-		AddDrinkItem();
+		HandleAddFoodDrinkItem();
+	}
+	else if (ci_equals(Arg, "remove"))
+	{
+		char item[MAX_STRING] = { 0 };
+		strcpy_s(item, GetNextArg(szLine));
+		if (item[0] == '\0')
+		{
+			return;
+		}
+		// check both vectors for the item
+		// and remove
+		HandleRemoveFoodDrinkItem("drink", item);
 	}
 	else if (IsNumber(Arg))
 	{
@@ -633,12 +673,12 @@ PLUGIN_API void OnPulse()
 
 	if (iDrinkAt && GetPcProfile()->thirstlevel < iDrinkAt)
 	{
-		Consume(ItemClass_Drink, Thirst);
+		Consume(ItemClass_Drink, vDrinkList);
 	}
 
 	if (iFeedAt && GetPcProfile()->hungerlevel < iFeedAt)
 	{
-		Consume(ItemClass_Food, Hunger);
+		Consume(ItemClass_Food, vFoodList);
 	}
 }
 
@@ -683,8 +723,8 @@ PLUGIN_API void SetGameState(const int GameState)
 
 			if (!Loaded)
 			{
-				ReadList(&Hunger, "FOOD");
-				ReadList(&Thirst, "DRINK");
+				PopulateVectorFromINISection(vFoodList, "FOOD");
+				PopulateVectorFromINISection(vDrinkList, "DRINK");
 				Loaded = true;
 			}
 		}
@@ -698,72 +738,102 @@ void FeedMeImGuiSettingsPanel()
 		WritePrivateProfileBool("Settings", "Announce", bAnnConsume, INIFileName);
 	}
 	ImGui::SameLine();
-	mq::imgui::HelpMarker("Announce Levels and Consumption.");
+	mq::imgui::HelpMarker("Announce Levels and Consumption.\n\nINI Setting: Announce");
 
 	if (ImGui::Checkbox("Ignore Safezones", &bIgnoreSafeZones))
 	{
 		WritePrivateProfileBool("Settings", "IgnoreSafeZones", bIgnoreSafeZones, INIFileName);
 	}
 	ImGui::SameLine();
-	mq::imgui::HelpMarker("Ignore Safe Zones like \"poknowledge\" or \"guildlobby\" for auto consumption.");
+	mq::imgui::HelpMarker("Ignore Safe Zones like \"poknowledge\" or \"guildlobby\" for auto consumption.\nThis does *NOT* move food around in your bags.\n\nINI Setting: IgnoreSafeZones");
 
 	if (ImGui::Checkbox("Warning: No Food", &bFoodWarn))
 	{
 		WritePrivateProfileBool("Settings", "FoodWarn", bFoodWarn, INIFileName);
 	}
 	ImGui::SameLine();
-	mq::imgui::HelpMarker("Warn when no food.");
+	mq::imgui::HelpMarker("Warn when no food.\n\nINI Setting: FoodWarn");
 
 	if (ImGui::Checkbox("Warning: No Drink", &bFoodWarn))
 	{
 		WritePrivateProfileBool("Settings", "DrinkWarn", bFoodWarn, INIFileName);
 	}
 	ImGui::SameLine();
-	mq::imgui::HelpMarker("Warn when no drink.");
+	mq::imgui::HelpMarker("Warn when no drink.\n\nINI Setting: DrinkWarn");
 
-	if (ImGui::InputInt("Consume Drink item at thirst level:", &iDrinkAt)) {
-		iDrinkAt = std::clamp(iDrinkAt, 0, 5000);
+	constexpr int iInputWidth = 150;
+	// so we get consistent alignment we should put these two in a table
+	if (ImGui::BeginTable("AutoConsumeTable", 2, ImGuiTableFlags_SizingFixedFit))
+	{
+		// Drink
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::TextUnformatted("Consume Drink at thirst level:");
+		ImGui::TableNextColumn();
+		ImGui::SetNextItemWidth(iInputWidth);
+		if (ImGui::InputInt("##iDrinkAt", &iDrinkAt)) {
+			iDrinkAt = std::clamp(iDrinkAt, 0, 5000);
 
-		WritePrivateProfileInt("Settings", "AutoDrink", iDrinkAt, INIFileName);
+			WritePrivateProfileInt("Settings", "AutoDrink", iDrinkAt, INIFileName);
+		}
+		ImGui::SameLine();
+		mq::imgui::HelpMarker("When we reach this thirst value we will consume a drink on your drink list until we are at/above the AutoDrink value.\n\nINI Setting: DrinkAt");
+
+		// Food
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::TextUnformatted("Consume Food at hunter level:");
+		ImGui::TableNextColumn();
+		ImGui::SetNextItemWidth(iInputWidth);
+		if (ImGui::InputInt("##iFeedAt", &iFeedAt)) {
+			iFeedAt = std::clamp(iFeedAt, 0, 5000);
+
+			WritePrivateProfileInt("Settings", "AutoFeed", iFeedAt, INIFileName);
+		}
+		ImGui::SameLine();
+		mq::imgui::HelpMarker("When we reach this hunger value we will consume food on your drink list until we are at/above the AutoFeed value.\n\nINI Setting: FeedAt");
+
+		ImGui::EndTable();
 	}
-	ImGui::SameLine();
-	mq::imgui::HelpMarker("When we reach this thirst value we will consume a drink on your drink list until we are at/above the AutoDrink value.");
-
-	if (ImGui::InputInt("Consume Food item at hunger level:", &iFeedAt)) {
-		iFeedAt = std::clamp(iFeedAt, 0, 5000);
-
-		WritePrivateProfileInt("Settings", "AutoFeed", iFeedAt, INIFileName);
-	}
-	ImGui::SameLine();
-	mq::imgui::HelpMarker("When we reach this hunger value we will consume food on your drink list until we are at/above the AutoFeed value.");
 
 	const float buttonsize = ImGui::GetWindowSize().x * 0.45f;
 	if (ImGui::Button("Add Food Currently on Cursor", ImVec2(buttonsize, 0)))
 	{
-		HandleFoodDrinkItem();
+		HandleAddFoodDrinkItem();
 	}
 	ImGui::SameLine();
 
 	if (ImGui::Button("Add Drink Currently on Cursor", ImVec2(buttonsize, 0)))
 	{
-		HandleFoodDrinkItem();
+		HandleAddFoodDrinkItem();
 	}
 
+	ImGui::SetWindowFontScale(0.75f); // make it small
+	ImGui::TextUnformatted("Double click to delete an item from the list.");
+	ImGui::SetWindowFontScale(1.0f); // set it back
+
 	ImGui::BeginChild("FoodChild", ImVec2(0, 150), true);
+
 	if (ImGui::BeginTable("##FeedMeFoodList", 1, ImGuiTableFlags_BordersInnerV))
 	{
 		ImGui::TableSetupColumn("Food");
 		ImGui::TableSetupScrollFreeze(0, 1);
 		ImGui::TableHeadersRow();
-		size_t index = 0;
-		for (const auto& food : Hunger)
+		for (int i = 0; i < static_cast<int>(vFoodList.size()); i++)
 		{
-			ImGui::PushID(static_cast<int>(index));
+			ImGui::PushID(i);
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(food.c_str());
+			ImGui::TextUnformatted(vFoodList[i].c_str());
+
+			// double click to remove
+			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+			{
+				const std::string& chosenFood = vFoodList[i];
+				HandleRemoveFoodDrinkItem("food", chosenFood.c_str());
+			}
+
 			ImGui::PopID();
-			index++;
 		}
 
 		ImGui::EndTable();
@@ -776,15 +846,21 @@ void FeedMeImGuiSettingsPanel()
 		ImGui::TableSetupColumn("Drink");
 		ImGui::TableSetupScrollFreeze(0, 1);
 		ImGui::TableHeadersRow();
-		size_t index = 0;
-		for (const auto& drink : Thirst)
+		for (int i = 0; i < static_cast<int>(vDrinkList.size()); i++)
 		{
-			ImGui::PushID(static_cast<int>(index));
+			ImGui::PushID(i);
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(drink.c_str());
+			ImGui::TextUnformatted(vDrinkList[i].c_str());
+
+			// double click to remove
+			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+			{
+				const std::string& chosenFood = vDrinkList[i];
+				HandleRemoveFoodDrinkItem("drink", chosenFood.c_str());
+			}
+
 			ImGui::PopID();
-			index++;
 		}
 
 		ImGui::EndTable();
