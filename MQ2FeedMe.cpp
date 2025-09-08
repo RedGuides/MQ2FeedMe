@@ -90,53 +90,35 @@ public:
 			return false;
 		}
 
+		Dest.Type = mq::datatypes::pBoolType;
+
 		switch ((FeedMeMembers)pMember->ID)
 		{
 			case FeedMeMembers::FeedAt:
-				Dest.Int = iFeedAt;
+				Dest.Set(iFeedAt);
 				Dest.Type = mq::datatypes::pIntType;
 				return true;
 			case FeedMeMembers::DrinkAt:
-				Dest.Int = iDrinkAt;
+				Dest.Set(iDrinkAt);
 				Dest.Type = mq::datatypes::pIntType;
 				return true;
 			case FeedMeMembers::Announce:
-				Dest.DWord = bAnnConsume;
-				Dest.Type = mq::datatypes::pBoolType;
+				Dest.Set(bAnnConsume);
 				return true;
 			case FeedMeMembers::FoodWarn:
-				Dest.DWord = bFoodWarn;
-				Dest.Type = mq::datatypes::pBoolType;
+				Dest.Set(bFoodWarn);
 				return true;
 			case FeedMeMembers::DrinkWarn:
-				Dest.DWord = bDrinkWarn;
-				Dest.Type = mq::datatypes::pBoolType;
+				Dest.Set(bDrinkWarn);
 				return true;
 			case FeedMeMembers::IgnoreSafeZones:
-				Dest.DWord = bIgnoreSafeZones;
-				Dest.Type = mq::datatypes::pBoolType;
+				Dest.Set(bIgnoreSafeZones);
 				return true;
 			default:
 				break;
 		}
 		return false;
 	}
-
-	bool ToString(MQVarPtr VarPtr, const char* Destination)
-	{
-		return true;
-	}
-
-	bool FromData(const MQVarPtr& VarPtr, MQTypeVar& Source)
-	{
-		return false;
-	}
-
-	bool FromString(MQVarPtr& VarPtr, const char* Source)
-	{
-		return false;
-	}
-
 };
 
 MQ2FeedMeType* pFeedMeType = nullptr;
@@ -293,7 +275,7 @@ bool GoodToConsume()
 		&& !WindowOpen("BigBankWnd") && !WindowOpen("BankWnd")	// not banking
 		&& !WindowOpen("LootWnd")								// not looting
 		&& pLocalPC->pSpawn->StandState != STANDSTATE_FEIGN		// not Feigned
-		&& (bIgnoreSafeZones ? !IsSafeZone(iZoneID) : true)		// if we are ignoring safe zones, make sure we're not in one
+		&& (!bIgnoreSafeZones || !IsSafeZone(iZoneID)	)		// if we are ignoring safe zones, make sure we're not in one
 		&& !bIAmCamping)										// not camping
 	{
 		return true;
@@ -712,21 +694,28 @@ PLUGIN_API void OnPulse()
 
 PLUGIN_API DWORD OnIncomingChat(const char* Line, const unsigned int Color)
 {
-	if (!bIAmCamping && ci_find_substr(Line, "It will take you about 30 seconds to prepare your camp.") != -1)
-	{
-		bIAmCamping = true;
-	}
-	else if (bIAmCamping && ci_find_substr(Line, "You abandon your preparations to camp.") != -1)
-	{
-		bIAmCamping = false;
+	if (Color == USERCOLOR_DEFAULT) {
+		if (!bIAmCamping)
+		{
+			if (find_substr(Line, "It will take you about 30 seconds to prepare your camp.") != -1)
+			{
+				bIAmCamping = true;
+			}
+		}
+		else
+		{
+			if (find_substr(Line, "You abandon your preparations to camp.") != -1)
+			{
+				bIAmCamping = false;
+			}
+		}
 	}
 	return 0;
 }
 
 PLUGIN_API VOID OnZoned()
 {
-	//If I switch characters and IAmCamping is still true and I finish zoning, and the gamestate is ingame...
-	if (bIAmCamping && GetGameState() == GAMESTATE_INGAME)
+	if (gGameState == GAMESTATE_CHARSELECT)
 	{
 		bIAmCamping = false;
 	}
@@ -768,7 +757,7 @@ void FeedMeImGuiSettingsPanel()
 	ImGui::SameLine();
 	mq::imgui::HelpMarker("Announce Levels and Consumption.\n\nINI Setting: Announce");
 
-	if (ImGui::Checkbox("Ignore Safezones", &bIgnoreSafeZones))
+	if (ImGui::Checkbox("Don't Consume In Safe Zones", &bIgnoreSafeZones))
 	{
 		WritePrivateProfileBool("Settings", "IgnoreSafeZones", bIgnoreSafeZones, INIFileName);
 	}
