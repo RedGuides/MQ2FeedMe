@@ -223,19 +223,6 @@ void ListTypes(const std::vector<std::string>& vVector)
 	{
 		WriteChatf("\ag - %d. \aw%s", i + 1, vVector[i].c_str());
 	}
-	}
-
-void Execute(PCHAR zFormat, ...)
-{
-	char zOutput[MAX_STRING]={0}; va_list vaList; va_start(vaList,zFormat);
-	vsprintf_s(zOutput, zFormat, vaList);
-
-	if (!zOutput[0])
-	{
-		return;
-	}
-
-	DoCommand(zOutput);
 }
 
 void Consume(uint8_t itemClass, std::vector<std::string> &vVector)
