@@ -709,7 +709,7 @@ void FeedMeImGuiSettingsPanel()
 		// Food
 		ImGui::TableNextRow();
 		ImGui::TableNextColumn();
-		ImGui::TextUnformatted("Consume Food at hunter level:");
+		ImGui::TextUnformatted("Consume Food at hunger level:");
 		ImGui::TableNextColumn();
 		ImGui::SetNextItemWidth(iInputWidth);
 		if (ImGui::InputInt("##iFeedAt", &iFeedAt))
