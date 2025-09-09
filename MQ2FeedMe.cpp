@@ -37,11 +37,12 @@
 //        /autofeed list   -> Display current food list and levels
 //****************************************************************//
 
-#include <mq/Plugin.h>
-#include <mq/imgui/ImGuiUtils.h>
+#include "mq/Plugin.h"
+#include "mq/imgui/ImGuiUtils.h"
 
 PreSetup("MQ2FeedMe");
 PLUGIN_VERSION(4.2);
+#define PLUGINMSG "\ar[\a-tFeedMe\ar]\ao:: "
 
 bool         Loaded = false;                // List Loaded?
 
