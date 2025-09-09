@@ -51,8 +51,8 @@ int          iDrinkAt = 0;                  // Drink Level
 std::vector<std::string> vFoodList;         // Hunger Fix List
 std::vector<std::string> vDrinkList;        // Thirst Fix List
 
-bool          bAnnounceLevels = true;            // Announce Levels
-bool          bAnnounceConsume = true;           // Announce Consumption
+bool          bAnnounceLevels = true;       // Announce Levels
+bool          bAnnounceConsume = true;      // Announce Consumption
 bool          bFoodWarn = false;            // Announce No Food
 bool          bDrinkWarn = false;           // Announce No Drink
 bool          bIAmCamping = false;          // Defining if we are camping out or not
