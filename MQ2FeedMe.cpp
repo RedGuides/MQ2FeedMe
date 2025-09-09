@@ -51,8 +51,8 @@ int          iDrinkAt = 0;                  // Drink Level
 std::vector<std::string> vFoodList;         // Hunger Fix List
 std::vector<std::string> vDrinkList;        // Thirst Fix List
 
-bool          bAnnLevels = true;            // Announce Levels
-bool          bAnnConsume = true;           // Announce Consumption
+bool          bAnnounceLevels = true;            // Announce Levels
+bool          bAnnounceConsume = true;           // Announce Consumption
 bool          bFoodWarn = false;            // Announce No Food
 bool          bDrinkWarn = false;           // Announce No Drink
 bool          bIAmCamping = false;          // Defining if we are camping out or not
@@ -104,7 +104,7 @@ public:
 				Dest.Type = mq::datatypes::pIntType;
 				return true;
 			case FeedMeMembers::Announce:
-				Dest.Set(bAnnConsume);
+				Dest.Set(bAnnounceConsume);
 				return true;
 			case FeedMeMembers::FoodWarn:
 				Dest.Set(bFoodWarn);
@@ -245,9 +245,9 @@ void Consume(uint8_t itemClass, std::vector<std::string> &vVector)
 		ItemPtr pItem = FindItemByName(name.c_str(), true);
 		if (pItem && pItem->GetItemClass() == itemClass)
 		{
-			if (bAnnConsume)
+			if (bAnnounceConsume)
 			{
-				WriteChatf("\ay%s\aw:: Consuming -> \ag%s.", PLUGIN_NAME, pItem->GetName());
+				WriteChatf(PLUGINMSG "\agConsuming \aw-> \ag%s.", pItem->GetName());
 			}
 
 			DoCommandf("/useitem \"%s\"", pItem->GetName());
@@ -259,14 +259,14 @@ void Consume(uint8_t itemClass, std::vector<std::string> &vVector)
 	{
 		if (bFoodWarn)
 		{
-			WriteChatf("\ay%s\aw:: No Food to Consume", PLUGIN_NAME);
+			WriteChatf(PLUGINMSG "\arNo Food to Consume");
 		}
 	}
 	else
 	{
 		if (bDrinkWarn)
 		{
-			WriteChatf("\ay%s\aw:: No Drink to Consume", PLUGIN_NAME);
+			WriteChatf(PLUGINMSG "\arNo Drink to Consume");
 		}
 	}
 }
@@ -275,7 +275,7 @@ void HandleAddFoodDrinkItem()
 {
 	if (!ItemOnCursor())
 	{
-		WriteChatf("%s:: \arNeed to have a food/drink item on your cursor to do this.", PLUGIN_NAME);
+		WriteChatf(PLUGINMSG "\arNeed to have a food/drink item on your cursor to do this.");
 		return;
 	}
 
@@ -284,11 +284,11 @@ void HandleAddFoodDrinkItem()
 	{
 		if (!pItem->GetItemDefinition()->FoodDuration)
 		{
-			WriteChatf("%s:: \arThat's not food or drink. Don't be rediculous", PLUGIN_NAME);
+			WriteChatf(PLUGINMSG "\arThat's not food or drink. Don't be rediculous");
 			return;
 		}
 
-		WriteChatf("%s:: \ayFound Item: \ap%s", PLUGIN_NAME, pItem->GetName());
+		WriteChatf(PLUGINMSG "\ayFound Item: \ap%s", pItem->GetName());
 
 		auto pItemClass = pItem->GetItemClass();
 		if (pItemClass == ItemClass_Food)
@@ -299,7 +299,7 @@ void HandleAddFoodDrinkItem()
 			{
 				if (ci_equals(itemName, pItem->GetName()))
 				{
-					WriteChatf("%s:: \ap%s \aris already on the list", PLUGIN_NAME, pItem->GetName());
+					WriteChatf(PLUGINMSG "\ap%s \aris already on the list", pItem->GetName());
 					return;
 				}
 			}
@@ -315,7 +315,7 @@ void HandleAddFoodDrinkItem()
 			{
 				if (ci_equals(itemName, pItem->GetName()))
 				{
-					WriteChatf("%s:: \ap%s \aris already on the list", PLUGIN_NAME, pItem->GetName());
+					WriteChatf(PLUGINMSG "\ap%s \aris already on the list", pItem->GetName());
 					return;
 				}
 			}
@@ -325,22 +325,17 @@ void HandleAddFoodDrinkItem()
 		}
 		else
 		{
-			WriteChatf("%s:: \arWe don't know what to do with %s.", PLUGIN_NAME, pItem->GetName());
+			WriteChatf(PLUGINMSG "\arWe don't know what to do with %s.", pItem->GetName());
 			return;
 		}
 
 		DoCommand("/autoinv");
-		WriteChatf("%s \agAdded\aw: \ap%s \ayto your auto%s list", PLUGIN_NAME, pItem->GetName(), (pItemClass == ItemClass_Food ? "feed" : "drink"));
+		WriteChatf(PLUGINMSG "\agAdded\aw: \ap%s \ayto your auto%s list", pItem->GetName(), (pItemClass == ItemClass_Food ? "feed" : "drink"));
 	}
 }
 
 void HandleRemoveFoodDrinkItem(const char* type, const char* item)
 {
-	if (!type)
-	{
-		return;
-	}
-
 	std::vector<std::string>* targetVector = nullptr;
 	std::string sectionName;
 
@@ -402,15 +397,15 @@ void GenericCommand(const char* szLine)
 	}
 	else if (ci_equals(Arg, "announceConsume"))
 	{
-		if (bAnnConsume)
+		if (bAnnounceConsume)
 		{
-			bAnnConsume = false;
-			WriteChatf("\ay%s\aw::Consumption Notification Off", PLUGIN_NAME);
+			bAnnounceConsume = false;
+			WriteChatf(PLUGINMSG "\agConsumption Notification Off");
 		}
 		else
 		{
-			bAnnConsume = true;
-			WriteChatf("\ay%s\aw::Consumption Notification On", PLUGIN_NAME);
+			bAnnounceConsume = true;
+			WriteChatf(PLUGINMSG "\agConsumption Notification On");
 		}
 	}
 	else if (ci_equals(Arg, "IgnoreSafeZones"))
@@ -430,21 +425,21 @@ void GenericCommand(const char* szLine)
 				bIgnoreSafeZones = false;
 			}
 			else {
-				WriteChatf("\ay%s\aw:: \ar%s\ax is an invalid option.", PLUGIN_NAME, NextArg);
+				WriteChatf(PLUGINMSG "\ar%s\ax is an invalid option.", NextArg);
 			}
-			WritePrivateProfileInt("Settings", "IgnoreSafeZones", bIgnoreSafeZones ? 1 : 0, INIFileName);
+			WritePrivateProfileBool("Settings", "IgnoreSafeZones", bIgnoreSafeZones, INIFileName);
 		}
-		WriteChatf("\ay%s\aw:: IgnoreSafeZones (\ag%s\ax).", PLUGIN_NAME, bIgnoreSafeZones ? "\agOn" : "\arOff");
+		WriteChatf(PLUGINMSG "\agIgnoreSafeZones (\ag%s\ax).", bIgnoreSafeZones ? "\agOn" : "\arOff");
 	}
-	else if (!_stricmp("ui", Arg) || !_stricmp("gui", Arg))
+	else if (ci_equals("ui", Arg) || ci_equals("gui", Arg))
 	{
 		DoCommand("/mqsettings plugins/feedme");
 	}
 }
 
-void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
+void AutoFeedCmd(PlayerClient* pPlayer, const char* szLine)
 {
-	if (!strlen(szLine))
+	if (szLine[0] == '\0')
 	{
 		if (GoodToConsume())
 		{
@@ -453,30 +448,28 @@ void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
 		return;
 	}
 
+	bool bReport = false;
 	char Arg[MAX_STRING] = { 0 };
 	GetArg(Arg, szLine, 1);
 
-	if (ci_equals(Arg, "list")) {
-		WriteChatf("\ay%s\aw:: Listing Food:", PLUGIN_NAME);
+	if (ci_equals(Arg, "list"))
+	{
+		WriteChatf(PLUGINMSG "\agListing Food:");
 		ListTypes(vFoodList);
 
-		if (bAnnLevels)
-		{
-			WriteChatf("\ay%s\aw:: AutoFeed (\ag%s\ax).", PLUGIN_NAME, (iFeedAt) ? std::to_string(iFeedAt).c_str() : "\aroff");
-			WriteChatf("\ay%s\aw:: Current Hunger (\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->hungerlevel);
-		}
+		bReport = true;
 	}
 	else if (ci_equals(Arg, "warn"))
 	{
 		if (bFoodWarn)
 		{
-			bFoodWarn = 0;
-			WriteChatf("\ay%s\aw:: Food Warning Off", PLUGIN_NAME);
+			bFoodWarn = false;
+			WriteChatf(PLUGINMSG "\agFood Warning \arOff");
 		}
 		else
 		{
-			bFoodWarn = 1;
-			WriteChatf("\ay%s\aw:: Food Warning On", PLUGIN_NAME);
+			bFoodWarn = true;
+			WriteChatf(PLUGINMSG "\agFood Warning On");
 		}
 	}
 	else if (ci_equals(Arg, "add"))
@@ -485,8 +478,7 @@ void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
 	}
 	else if (ci_equals(Arg, "remove"))
 	{
-		char item[MAX_STRING] = { 0 };
-		strcpy_s(item, GetNextArg(szLine));
+		const char* item = GetNextArg(szLine);
 		if (item[0] == '\0')
 		{
 			return;
@@ -497,31 +489,31 @@ void AutoFeedCmd(PlayerClient* pLPlayer, char* szLine)
 	else if (IsNumber(Arg))
 	{
 		iFeedAt = GetIntFromString(Arg, 5000);
+		iFeedAt = std::clamp(iFeedAt, 0, 5000);
 
-		if (iFeedAt < 0)
-		{
-			iFeedAt = 0;
-		}
-		else if (iFeedAt > 5000)
-		{
-			iFeedAt = 5000;
-		}
+		WritePrivateProfileInt(pLocalPC->Name, "AutoFeed", iFeedAt, INIFileName);
+		bReport = true;
+	}
 
-		WritePrivateProfileInt(GetCharInfo()->Name, "AutoFeed", iFeedAt, INIFileName);
-		WriteChatf("\ay%s\aw:: AutoFeed (\ag%s\ax).", PLUGIN_NAME, iFeedAt ? std::to_string(iFeedAt).c_str() : "\aroff");
-
-		if (bAnnLevels)
+	if (bReport && bAnnounceLevels)
+	{
+		if (iFeedAt)
 		{
-			WriteChatf("\ay%s\aw:: Current Thirst (\ag%d\ax) Hunger (\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->thirstlevel, GetPcProfile()->hungerlevel);
+			WriteChatf(PLUGINMSG "\agAutoFeed (\ag%d\ax).", iFeedAt);
 		}
+		else
+		{
+			WriteChatf(PLUGINMSG "\agAutoFeed (\aroff\ax).");
+		}
+		WriteChatf(PLUGINMSG "\agCurrent Thirst\aw: (\ag%d\ag) Hunger\aw: (\ag%d\ax)", GetPcProfile()->thirstlevel, GetPcProfile()->hungerlevel);
 	}
 
 	GenericCommand(szLine);
 }
 
-void AutoDrinkCmd(PlayerClient* pLPlayer, const char* szLine)
+void AutoDrinkCmd(PlayerClient* pPlayer, const char* szLine)
 {
-	if (!strlen(szLine))
+	if (szLine[0] == '\0')
 	{
 		if (GoodToConsume())
 		{
@@ -530,29 +522,26 @@ void AutoDrinkCmd(PlayerClient* pLPlayer, const char* szLine)
 		return;
 	}
 
+	bool bReport = false;
 	char Arg[MAX_STRING] = { 0 };
 	GetArg(Arg, szLine, 1);
 
 	if (ci_equals(Arg, "list"))
 	{
-		WriteChatf("\ay%s\aw:: Listing Drink:", PLUGIN_NAME);
+		WriteChatf(PLUGINMSG "\agListing Drink:");
 		ListTypes(vDrinkList);
-		if (bAnnLevels)
-		{
-			WriteChatf("\ay%s\aw:: AutoDrink (\ag%s\ax).", PLUGIN_NAME, iDrinkAt ? std::to_string(iDrinkAt).c_str() : "\aroff");
-			WriteChatf("\ay%s\aw:: Current Thirst (\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->thirstlevel);
-		}
+		bReport = true;
 	}
 	else if (ci_equals(Arg, "warn"))
 	{
 		if (bDrinkWarn)
 		{
 			bDrinkWarn = false;
-			WriteChatf("\ay%s\aw:: Drink Warning Off", PLUGIN_NAME);
+			WriteChatf(PLUGINMSG "\agDrink Warning \arOff");
 		}
 		else {
 			bDrinkWarn = true;
-			WriteChatf("\ay%s\aw:: Drink Warning On", PLUGIN_NAME);
+			WriteChatf(PLUGINMSG "\agDrink Warning On");
 		}
 	}
 	else if (ci_equals(Arg, "add"))
@@ -561,8 +550,7 @@ void AutoDrinkCmd(PlayerClient* pLPlayer, const char* szLine)
 	}
 	else if (ci_equals(Arg, "remove"))
 	{
-		char item[MAX_STRING] = { 0 };
-		strcpy_s(item, GetNextArg(szLine));
+		const char* item = GetNextArg(szLine);
 		if (item[0] == '\0')
 		{
 			return;
@@ -574,27 +562,27 @@ void AutoDrinkCmd(PlayerClient* pLPlayer, const char* szLine)
 	else if (IsNumber(Arg))
 	{
 		iDrinkAt = GetIntFromString(Arg, 5000);
-		if (iDrinkAt < 0)
-		{
-			iDrinkAt = 0;
-		}
-		else if (iDrinkAt > 5000)
-		{
-			iDrinkAt = 5000;
-		}
+		iDrinkAt = std::clamp(iDrinkAt, 0, 5000);
 
-		WritePrivateProfileInt(GetCharInfo()->Name, "AutoDrink", iDrinkAt, INIFileName);
-		WriteChatf("\ay%s\aw:: AutoDrink (\ag%s\ax).", PLUGIN_NAME, iDrinkAt ? std::to_string(iDrinkAt).c_str() : "\aroff");
-
-		if (bAnnLevels)
-		{
-			WriteChatf("\ay%s\aw:: Current Thirst (\ag%d\ax) Hunger (\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->thirstlevel, GetPcProfile()->hungerlevel);
-		}
+		WritePrivateProfileInt(pLocalPC->Name, "AutoDrink", iDrinkAt, INIFileName);
+		bReport = true;
 	}
-	else
+
+	if (bReport && bAnnounceLevels)
 	{
-		GenericCommand(szLine);
+		if (iFeedAt)
+		{
+			WriteChatf(PLUGINMSG "\agAutoDrink (\ag%d\ax).", iDrinkAt);
+		}
+		else
+		{
+			WriteChatf(PLUGINMSG "\agAutoDrink (\aroff\ax).");
+		}
+		WriteChatf(PLUGINMSG "\agCurrent Thirst\aw: (\ag%d\ag) Hunger\aw: (\ag%d\ax)", GetPcProfile()->thirstlevel, GetPcProfile()->hungerlevel);
+		return;
 	}
+
+	GenericCommand(szLine);
 }
 
 PLUGIN_API void OnPulse()
