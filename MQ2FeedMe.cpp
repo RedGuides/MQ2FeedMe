@@ -154,12 +154,13 @@ bool AbilityInUse()
 	return pLocalPlayer && pLocalPlayer->CastingData.SpellETA != 0;
 }
 
-void PopulateVectorFromINISection(std::vector<std::string>&vVector, const char* section) {
+void PopulateVectorFromINISection(std::vector<std::string>&vVector, const char* section)
+{
 	vVector.clear(); // clear the vector to ensure we're not duplicating
 
 	char keys[64] = { 0 };
 	GetPrivateProfileStringA(
-		section,    // section name
+		section,      // section name
 		NULL,         // get all keys
 		"",           // default
 		keys,         // buffer
@@ -194,21 +195,21 @@ bool GoodToConsume()
 
 	int iZoneID = EQWorldData::GetZoneBaseId(pLocalPlayer->GetZoneID());
 
-	if(GetGameState() == GAMESTATE_INGAME						// currently ingame
-		&& pLocalPC												// have Charinfo
-		&& pLocalPC->pSpawn										// have a Spawn
-		&& pChar2												// have PcProfile
-		&& !ItemOnCursor()										// nothing on cursor
-		&& (!IsCasting() || pChar2->Class == Bard)				// not casting unless bard
-		&& (!AbilityInUse() || pChar2->Class == Bard)			// not using abilities unless bard
-		&& !WindowOpen("SpellBookWnd")							// not looking at the book
-		&& !WindowOpen("MerchantWnd")							// not interacting with vendor
-		&& !WindowOpen("TradeWnd")								// not trading with someone
-		&& !WindowOpen("BigBankWnd") && !WindowOpen("BankWnd")	// not banking
-		&& !WindowOpen("LootWnd")								// not looting
-		&& pLocalPC->pSpawn->StandState != STANDSTATE_FEIGN		// not Feigned
-		&& (!bIgnoreSafeZones || !InSafeZone())		// if we are ignoring safe zones, make sure we're not in one
-		&& !bIAmCamping)										// not camping
+	if(GetGameState() == GAMESTATE_INGAME                       // currently ingame
+		&& pLocalPC                                             // have Charinfo
+		&& pLocalPC->pSpawn                                     // have a Spawn
+		&& pChar2                                               // have PcProfile
+		&& !ItemOnCursor()                                      // nothing on cursor
+		&& (!IsCasting() || pChar2->Class == Bard)              // not casting unless bard
+		&& (!AbilityInUse() || pChar2->Class == Bard)           // not using abilities unless bard
+		&& !WindowOpen("SpellBookWnd")                          // not looking at the book
+		&& !WindowOpen("MerchantWnd")                           // not interacting with vendor
+		&& !WindowOpen("TradeWnd")                              // not trading with someone
+		&& !WindowOpen("BigBankWnd") && !WindowOpen("BankWnd")  // not banking
+		&& !WindowOpen("LootWnd")                               // not looting
+		&& pLocalPC->pSpawn->StandState != STANDSTATE_FEIGN     // not Feigned
+		&& (!bIgnoreSafeZones || !InSafeZone())                 // if we are ignoring safe zones, make sure we're not in one
+		&& !bIAmCamping)                                        // not camping
 	{
 		return true;
 	}
@@ -351,7 +352,8 @@ void HandleRemoveFoodDrinkItem(const char* type, const char* item)
 	}
 
 	auto it = std::find_if(targetVector->begin(), targetVector->end(),
-		[item](const std::string& vectorItem) {
+		[item](const std::string& vectorItem)
+		{
 			return ci_equals(item, vectorItem);
 		});
 
@@ -614,7 +616,8 @@ PLUGIN_API void OnPulse()
 
 PLUGIN_API DWORD OnIncomingChat(const char* Line, const unsigned int Color)
 {
-	if (Color == USERCOLOR_DEFAULT) {
+	if (Color == USERCOLOR_DEFAULT)
+	{
 		if (!bIAmCamping)
 		{
 			if (find_substr(Line, "It will take you about 30 seconds to prepare your camp.") != -1)
@@ -643,20 +646,21 @@ PLUGIN_API VOID OnZoned()
 
 PLUGIN_API void SetGameState(const int GameState)
 {
-	if (GameState == GAMESTATE_INGAME) {
+	if (GameState == GAMESTATE_INGAME)
+	{
 		if (pLocalPC)
 		{
-			iDrinkAt     = GetPrivateProfileInt(pLocalPC->Name, "AutoDrink", 0, INIFileName);
-			iFeedAt     = GetPrivateProfileInt(pLocalPC->Name, "AutoFeed",  0, INIFileName);
-			bAnnLevels = GetPrivateProfileInt("Settings", "Announce",  1, INIFileName) != 0;
-			bAnnConsume = GetPrivateProfileInt("Settings", "Announce", 1, INIFileName) != 0;
-			bFoodWarn  = GetPrivateProfileInt("Settings", "FoodWarn",  0, INIFileName) != 0;
-			bDrinkWarn = GetPrivateProfileInt("Settings", "DrinkWarn",  0, INIFileName) != 0;
+			iDrinkAt = GetPrivateProfileInt(pLocalPC->Name, "AutoDrink", 0, INIFileName);
+			iFeedAt = GetPrivateProfileInt(pLocalPC->Name, "AutoFeed",  0, INIFileName);
+			bAnnounceLevels = GetPrivateProfileBool("Settings", "Announce",  true, INIFileName);
+			bAnnounceConsume = GetPrivateProfileBool("Settings", "Announce", true, INIFileName);
+			bFoodWarn = GetPrivateProfileBool("Settings", "FoodWarn", false, INIFileName);
+			bDrinkWarn = GetPrivateProfileBool("Settings", "DrinkWarn", false, INIFileName);
 
-			WritePrivateProfileInt("Settings", "Announce", bAnnLevels ? 1 : 0, INIFileName);
-			WritePrivateProfileInt("Settings", "FoodWarn", bFoodWarn ? 1 : 0, INIFileName);
-			WritePrivateProfileInt("Settings", "DrinkWarn", bDrinkWarn ? 1 : 0, INIFileName);
-			WritePrivateProfileInt("Settings", "IgnoreSafeZones", bIgnoreSafeZones ? 1 : 0, INIFileName);
+			WritePrivateProfileBool("Settings", "Announce", bAnnounceLevels, INIFileName);
+			WritePrivateProfileBool("Settings", "FoodWarn", bFoodWarn, INIFileName);
+			WritePrivateProfileBool("Settings", "DrinkWarn", bDrinkWarn, INIFileName);
+			WritePrivateProfileBool("Settings", "IgnoreSafeZones", bIgnoreSafeZones, INIFileName);
 
 			if (!Loaded)
 			{
