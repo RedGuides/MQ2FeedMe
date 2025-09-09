@@ -659,30 +659,30 @@ PLUGIN_API void SetGameState(const int GameState)
 
 void FeedMeImGuiSettingsPanel()
 {
-	if (ImGui::Checkbox("Announce", &bAnnConsume))
+	if (ImGui::Checkbox("Announce levels and consumption", &bAnnounceConsume))
 	{
-		WritePrivateProfileBool("Settings", "Announce", bAnnConsume, INIFileName);
+		WritePrivateProfileBool("Settings", "Announce", bAnnounceConsume, INIFileName);
 	}
 	ImGui::SameLine();
-	mq::imgui::HelpMarker("Announce Levels and Consumption.\n\nINI Setting: Announce");
+	mq::imgui::HelpMarker("Announce levels and consumption.\n\nINI Setting: Announce");
 
-	if (ImGui::Checkbox("Don't Consume In Safe Zones", &bIgnoreSafeZones))
+	if (ImGui::Checkbox("Don't consume in safe zones", &bIgnoreSafeZones))
 	{
 		WritePrivateProfileBool("Settings", "IgnoreSafeZones", bIgnoreSafeZones, INIFileName);
 	}
 	ImGui::SameLine();
-	mq::imgui::HelpMarker("Ignore Safe Zones like \"poknowledge\" or \"guildlobby\" for auto consumption.\nThis does *NOT* move food around in your bags.\n\nINI Setting: IgnoreSafeZones");
+	mq::imgui::HelpMarker("Ignore safe zones like \"poknowledge\" or \"guildlobby\" for auto consumption.\nThis does *NOT* move food around in your bags.\n\nINI Setting: IgnoreSafeZones");
 
-	if (ImGui::Checkbox("Warning: No Food", &bFoodWarn))
+	if (ImGui::Checkbox("Warn when no food", &bFoodWarn))
 	{
 		WritePrivateProfileBool("Settings", "FoodWarn", bFoodWarn, INIFileName);
 	}
 	ImGui::SameLine();
 	mq::imgui::HelpMarker("Warn when no food.\n\nINI Setting: FoodWarn");
 
-	if (ImGui::Checkbox("Warning: No Drink", &bFoodWarn))
+	if (ImGui::Checkbox("Warn when no drink", &bDrinkWarn))
 	{
-		WritePrivateProfileBool("Settings", "DrinkWarn", bFoodWarn, INIFileName);
+		WritePrivateProfileBool("Settings", "DrinkWarn", bDrinkWarn, INIFileName);
 	}
 	ImGui::SameLine();
 	mq::imgui::HelpMarker("Warn when no drink.\n\nINI Setting: DrinkWarn");
@@ -697,7 +697,8 @@ void FeedMeImGuiSettingsPanel()
 		ImGui::TextUnformatted("Consume Drink at thirst level:");
 		ImGui::TableNextColumn();
 		ImGui::SetNextItemWidth(iInputWidth);
-		if (ImGui::InputInt("##iDrinkAt", &iDrinkAt)) {
+		if (ImGui::InputInt("##iDrinkAt", &iDrinkAt))
+		{
 			iDrinkAt = std::clamp(iDrinkAt, 0, 5000);
 
 			WritePrivateProfileInt("Settings", "AutoDrink", iDrinkAt, INIFileName);
@@ -711,7 +712,8 @@ void FeedMeImGuiSettingsPanel()
 		ImGui::TextUnformatted("Consume Food at hunter level:");
 		ImGui::TableNextColumn();
 		ImGui::SetNextItemWidth(iInputWidth);
-		if (ImGui::InputInt("##iFeedAt", &iFeedAt)) {
+		if (ImGui::InputInt("##iFeedAt", &iFeedAt))
+		{
 			iFeedAt = std::clamp(iFeedAt, 0, 5000);
 
 			WritePrivateProfileInt("Settings", "AutoFeed", iFeedAt, INIFileName);
@@ -723,13 +725,13 @@ void FeedMeImGuiSettingsPanel()
 	}
 
 	const float buttonsize = ImGui::GetWindowSize().x * 0.45f;
-	if (ImGui::Button("Add Food Currently on Cursor", ImVec2(buttonsize, 0)))
+	if (ImGui::Button("Add food from cursor", ImVec2(buttonsize, 0)))
 	{
 		HandleAddFoodDrinkItem();
 	}
 	ImGui::SameLine();
 
-	if (ImGui::Button("Add Drink Currently on Cursor", ImVec2(buttonsize, 0)))
+	if (ImGui::Button("Add drink from cursor", ImVec2(buttonsize, 0)))
 	{
 		HandleAddFoodDrinkItem();
 	}
@@ -747,25 +749,23 @@ void FeedMeImGuiSettingsPanel()
 	ImGui::TextUnformatted(text);
 	ImGui::SetWindowFontScale(1.0f); // set it back
 
-	ImGui::BeginChild("FoodChild", ImVec2(0, 150), true);
 
-	if (ImGui::BeginTable("##FeedMeFoodList", 1, ImGuiTableFlags_BordersInnerV))
+	if (ImGui::BeginTable("##FeedMeFoodList", 1, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY, ImVec2(0, 150)))
 	{
 		ImGui::TableSetupColumn("Food");
 		ImGui::TableSetupScrollFreeze(0, 1);
 		ImGui::TableHeadersRow();
-		for (int i = 0; i < static_cast<int>(vFoodList.size()); i++)
+		for (const std::string& food : vFoodList)
 		{
-			ImGui::PushID(i);
+			ImGui::PushID(food.c_str());
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(vFoodList[i].c_str());
+			ImGui::TextUnformatted(food.c_str());
 
 			// double click to remove
 			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
 			{
-				const std::string& chosenFood = vFoodList[i];
-				HandleRemoveFoodDrinkItem("food", chosenFood.c_str());
+				HandleRemoveFoodDrinkItem("food", food.c_str());
 			}
 
 			ImGui::PopID();
@@ -773,26 +773,23 @@ void FeedMeImGuiSettingsPanel()
 
 		ImGui::EndTable();
 	}
-	ImGui::EndChild();
 
-	ImGui::BeginChild("DrinkChild", ImVec2(0, 150), true);
-	if (ImGui::BeginTable("##FeedMeDrinkList", 1, ImGuiTableFlags_BordersInnerV))
+	if (ImGui::BeginTable("##FeedMeDrinkList", 1, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY, ImVec2(0, 150)))
 	{
 		ImGui::TableSetupColumn("Drink");
 		ImGui::TableSetupScrollFreeze(0, 1);
 		ImGui::TableHeadersRow();
-		for (int i = 0; i < static_cast<int>(vDrinkList.size()); i++)
+		for (const std::string& drink : vDrinkList)
 		{
-			ImGui::PushID(i);
+			ImGui::PushID(drink.c_str());
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			ImGui::TextUnformatted(vDrinkList[i].c_str());
+			ImGui::TextUnformatted(drink.c_str());
 
 			// double click to remove
 			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
 			{
-				const std::string& chosenFood = vDrinkList[i];
-				HandleRemoveFoodDrinkItem("drink", chosenFood.c_str());
+				HandleRemoveFoodDrinkItem("drink", drink.c_str());
 			}
 
 			ImGui::PopID();
@@ -800,7 +797,6 @@ void FeedMeImGuiSettingsPanel()
 
 		ImGui::EndTable();
 	}
-	ImGui::EndChild();
 }
 
 PLUGIN_API void InitializePlugin()
