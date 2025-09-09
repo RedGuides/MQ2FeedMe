@@ -219,12 +219,11 @@ bool GoodToConsume()
 
 void ListTypes(const std::vector<std::string>& vVector)
 {
-	int i = 1;
-	for (const std::string& value : vVector)
+	for (int i = 0; i < vVector.size(); ++i)
 	{
-		WriteChatf("\ag - %d. \aw%s", i++, value.c_str());
+		WriteChatf("\ag - %d. \aw%s", i + 1, vVector[i].c_str());
 	}
-}
+	}
 
 void Execute(PCHAR zFormat, ...)
 {
@@ -362,11 +361,10 @@ void HandleRemoveFoodDrinkItem(const char* type, const char* item)
 		targetVector->erase(it);
 	}
 
-
 	// update ini with our vector of drinks
 	if (targetVector)
 	{
-		for (int i = 0; i < static_cast<int>(targetVector->size()); ++i)
+		for (size_t i = 0; i < (targetVector->size()); ++i)
 		{
 			WritePrivateProfileString(sectionName.c_str(),
 				fmt::format("{}{}",
@@ -379,10 +377,10 @@ void HandleRemoveFoodDrinkItem(const char* type, const char* item)
 		// Delete any additional keys that exist
 		// this does an arbitrary check 10 past the vector size
 		// adding a function to count ini section keys seems a bit excessive
-		for (int i = static_cast<int>(targetVector->size()); i < static_cast<int>(targetVector->size()) + 10; ++i)
+		for (size_t i = targetVector->size(); i < targetVector->size() + 10; ++i)
 		{
 			std::string keyName = fmt::format("{}{}", sectionName, i);
-			WritePrivateProfileString(sectionName.c_str(), keyName.c_str(), NULL, INIFileName);
+			DeletePrivateProfileKey(sectionName, keyName, INIFileName);
 		}
 	}
 }
