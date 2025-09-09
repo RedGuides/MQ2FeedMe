@@ -37,29 +37,108 @@
 //        /autofeed list   -> Display current food list and levels
 //****************************************************************//
 
-#include <mq/Plugin.h>
+#include "mq/Plugin.h"
+#include "mq/imgui/ImGuiUtils.h"
 
 PreSetup("MQ2FeedMe");
 PLUGIN_VERSION(4.2);
+#define PLUGINMSG "\ar[\a-tFeedMe\ar]\ao:: "
 
-bool         Loaded=false;             // List Loaded?
+bool         Loaded = false;                // List Loaded?
 
-long         FeedAt=0;                 // Feed Level
-long         DrnkAt=0;                 // Drink Level
-char         Buffer[16]={0};
-std::list<std::string> Hunger;         // Hunger Fix List
-std::list<std::string> Thirst;         // Thirst Fix List
+int          iFeedAt = 0;                   // Feed Level
+int          iDrinkAt = 0;                  // Drink Level
+std::vector<std::string> vFoodList;         // Hunger Fix List
+std::vector<std::string> vDrinkList;        // Thirst Fix List
 
-bool          bAnnLevels = true;       // Announce Levels
-bool          bAnnConsume = true;      // Announce Consumption
-bool          bFoodWarn = false;       // Announce No Food
-bool          bDrinkWarn = false;      // Announce No Drink
-
-bool IAmCamping = false;               // Defining if we are camping out or not
+bool          bAnnounceLevels = true;       // Announce Levels
+bool          bAnnounceConsume = true;      // Announce Consumption
+bool          bFoodWarn = false;            // Announce No Food
+bool          bDrinkWarn = false;           // Announce No Drink
+bool          bIAmCamping = false;          // Defining if we are camping out or not
+bool          bIgnoreSafeZones = false;     // Don't consume in "safe zones"
 
 const char* PLUGIN_NAME = "MQ2FeedMe";
 
-bool WindowOpen(PCHAR WindowName)
+class MQ2FeedMeType : public MQ2Type
+{
+public:
+	enum class FeedMeMembers
+	{
+		FeedAt,
+		DrinkAt,
+		Announce,
+		FoodWarn,
+		DrinkWarn,
+		IgnoreSafeZones,
+	};
+
+	MQ2FeedMeType() : MQ2Type("FeedMe")
+	{
+		ScopedTypeMember(FeedMeMembers, FeedAt);
+		ScopedTypeMember(FeedMeMembers, DrinkAt);
+		ScopedTypeMember(FeedMeMembers, Announce);
+		ScopedTypeMember(FeedMeMembers, FoodWarn);
+		ScopedTypeMember(FeedMeMembers, DrinkWarn);
+		ScopedTypeMember(FeedMeMembers, IgnoreSafeZones);
+	};
+
+	virtual bool GetMember(MQVarPtr VarPtr, const char* Member, char* Index, MQTypeVar& Dest) override
+	{
+		MQTypeMember* pMember = MQ2FeedMeType::FindMember(Member);
+		if (!pMember)
+		{
+			return false;
+		}
+
+		Dest.Type = mq::datatypes::pBoolType;
+
+		switch ((FeedMeMembers)pMember->ID)
+		{
+			case FeedMeMembers::FeedAt:
+				Dest.Set(iFeedAt);
+				Dest.Type = mq::datatypes::pIntType;
+				return true;
+			case FeedMeMembers::DrinkAt:
+				Dest.Set(iDrinkAt);
+				Dest.Type = mq::datatypes::pIntType;
+				return true;
+			case FeedMeMembers::Announce:
+				Dest.Set(bAnnounceConsume);
+				return true;
+			case FeedMeMembers::FoodWarn:
+				Dest.Set(bFoodWarn);
+				return true;
+			case FeedMeMembers::DrinkWarn:
+				Dest.Set(bDrinkWarn);
+				return true;
+			case FeedMeMembers::IgnoreSafeZones:
+				Dest.Set(bIgnoreSafeZones);
+				return true;
+			default:
+				break;
+		}
+		return false;
+	}
+};
+
+MQ2FeedMeType* pFeedMeType = nullptr;
+
+bool dataFeedMe(const char* szIndex, MQTypeVar& Dest)
+{
+	Dest.DWord = 1;
+	Dest.Type = pFeedMeType;
+	return true;
+}
+
+bool InSafeZone()
+{
+	// if bufftimers are on hold we're assumign we're in a safe zone
+	// this has the additional beneficial side affect of us not needing to maintain a list of zones to ignore
+	return pLocalPlayer && pLocalPlayer->bBuffTimersOnHold;
+}
+
+bool WindowOpen(const char* WindowName)
 {
 	const auto pWnd = FindMQ2Window(WindowName);
 	return  pWnd != nullptr && pWnd->IsVisible();
@@ -75,279 +154,648 @@ bool AbilityInUse()
 	return pLocalPlayer && pLocalPlayer->CastingData.SpellETA != 0;
 }
 
-void ReadList(std::list<std::string>* MyList, PCHAR fSec)
+void PopulateVectorFromINISection(std::vector<std::string>&vVector, const char* section)
 {
-	char Buffer[MAX_STRING*10];
-	MyList->clear();
-	if(GetPrivateProfileString(fSec,NULL,"",Buffer,MAX_STRING*10,INIFileName)) {
-		char  szTemp[MAX_STRING];
-		PCHAR pBuffer=Buffer;
-		while (pBuffer[0]!=0) {
-			GetPrivateProfileString(fSec,pBuffer,"",szTemp,MAX_STRING,INIFileName);
-			if(szTemp[0]!=0) MyList->push_back(std::string(szTemp));
-			pBuffer+=strlen(pBuffer)+1;
-		}
+	vVector.clear(); // clear the vector to ensure we're not duplicating
+
+	char keys[64] = { 0 };
+	GetPrivateProfileStringA(
+		section,      // section name
+		NULL,         // get all keys
+		"",           // default
+		keys,         // buffer
+		sizeof(keys), // buffer size
+		INIFileName
+	);
+
+	// Walk through null-delimited list of keys
+	for (const char* key = keys; *key; key += strlen(key) + 1)
+	{
+		char value[64];
+		GetPrivateProfileStringA(
+			section,
+			key,
+			"",
+			value,
+			sizeof(value),
+			INIFileName
+		);
+		vVector.push_back(value);
 	}
 }
 
-bool GoodToFeed()
+bool GoodToConsume()
 {
-	auto pChar = GetCharInfo();
 	auto pChar2 = GetPcProfile();
 
-	if(GetGameState() == GAMESTATE_INGAME &&                  // currently ingame
-	   pChar &&                                               // have Charinfo
-	   pChar->pSpawn &&                                       // have a Spawn
-	   pChar2 &&                                              // have PcProfile
-	   !ItemOnCursor() &&                                     // nothing on cursor
-	   (!IsCasting() || pChar2->Class == Bard) &&             // not casting unless bard
-	   (!AbilityInUse() || pChar2->Class == Bard) &&          // not using abilities unless bard
-	   !WindowOpen("SpellBookWnd") &&                         // not looking at the book
-	   !WindowOpen("MerchantWnd") &&                          // not interacting with vendor
-	   !WindowOpen("TradeWnd") &&                             // not trading with someone
-	   !WindowOpen("BigBankWnd") && !WindowOpen("BankWnd") && // not banking
-	   !WindowOpen("LootWnd") &&                              // not looting
-	   pChar->pSpawn->StandState != STANDSTATE_FEIGN &&       // not Feigned
-	   !IAmCamping) {                                         // not camping
+	if (!pLocalPlayer)
+	{
+		return false;
+	}
+
+	int iZoneID = EQWorldData::GetZoneBaseId(pLocalPlayer->GetZoneID());
+
+	if(GetGameState() == GAMESTATE_INGAME                       // currently ingame
+		&& pLocalPC                                             // have Charinfo
+		&& pLocalPC->pSpawn                                     // have a Spawn
+		&& pChar2                                               // have PcProfile
+		&& !ItemOnCursor()                                      // nothing on cursor
+		&& (!IsCasting() || pChar2->Class == Bard)              // not casting unless bard
+		&& (!AbilityInUse() || pChar2->Class == Bard)           // not using abilities unless bard
+		&& !WindowOpen("SpellBookWnd")                          // not looking at the book
+		&& !WindowOpen("MerchantWnd")                           // not interacting with vendor
+		&& !WindowOpen("TradeWnd")                              // not trading with someone
+		&& !WindowOpen("BigBankWnd") && !WindowOpen("BankWnd")  // not banking
+		&& !WindowOpen("LootWnd")                               // not looting
+		&& pLocalPC->pSpawn->StandState != STANDSTATE_FEIGN     // not Feigned
+		&& (!bIgnoreSafeZones || !InSafeZone())                 // if we are ignoring safe zones, make sure we're not in one
+		&& !bIAmCamping)                                        // not camping
+	{
 		return true;
 	}
+
 	return false;
 }
 
-void ListTypes(const std::list<std::string>& list)
+void ListTypes(const std::vector<std::string>& vVector)
 {
-	int i = 1;
-	for (const std::string& value : list)
+	for (int i = 0; i < vVector.size(); ++i)
 	{
-		WriteChatf("\ag - %d. \aw%s", i++, value.c_str());
+		WriteChatf("\ag - %d. \aw%s", i + 1, vVector[i].c_str());
 	}
 }
 
-void Execute(PCHAR zFormat, ...)
+void Consume(uint8_t itemClass, std::vector<std::string> &vVector)
 {
-	char zOutput[MAX_STRING]={0}; va_list vaList; va_start(vaList,zFormat);
-	vsprintf_s(zOutput,zFormat,vaList); if(!zOutput[0]) return;
-	DoCommand(GetCharInfo()->pSpawn,zOutput);
-}
-
-void Consume(uint8_t itemClass, const std::list<std::string>& fLIST)
-{
-	for (const std::string& name : fLIST) {
+	for (const std::string& name : vVector)
+	{
 		ItemPtr pItem = FindItemByName(name.c_str(), true);
-		if (pItem && pItem->GetItemClass() == itemClass) {
-			if (bAnnConsume) WriteChatf("\ay%s\aw:: Consuming -> \ag%s.", PLUGIN_NAME, name.c_str());
-			Execute("/useitem %d %d", pItem->GetItemLocation().GetSlot(0), pItem->GetItemLocation().GetSlot(1));
+		if (pItem && pItem->GetItemClass() == itemClass)
+		{
+			if (bAnnounceConsume)
+			{
+				WriteChatf(PLUGINMSG "\agConsuming \aw-> \ag%s.", pItem->GetName());
+			}
+
+			DoCommandf("/useitem \"%s\"", pItem->GetName());
 			return;
 		}
 	}
 
-	if (itemClass == ItemClass_Food) {
-		if (bFoodWarn) WriteChatf("\ay%s\aw:: No Food to Consume", PLUGIN_NAME);
-	} else {
-		if (bDrinkWarn) WriteChatf("\ay%s\aw:: No Drink to Consume", PLUGIN_NAME);
+	if (itemClass == ItemClass_Food)
+	{
+		if (bFoodWarn)
+		{
+			WriteChatf(PLUGINMSG "\arNo Food to Consume");
+		}
+	}
+	else
+	{
+		if (bDrinkWarn)
+		{
+			WriteChatf(PLUGINMSG "\arNo Drink to Consume");
+		}
 	}
 }
 
-void AutoFeedCmd(PSPAWNINFO pLPlayer, char* szLine)
+void HandleAddFoodDrinkItem()
 {
-	if (!strlen(szLine)) {
-		if (GoodToFeed()) Consume(ItemClass_Food, Hunger);
+	if (!ItemOnCursor())
+	{
+		WriteChatf(PLUGINMSG "\arNeed to have a food/drink item on your cursor to do this.");
 		return;
 	}
-	CHAR Arg[MAX_STRING] = { 0 };
-	GetArg(Arg, szLine, 1);
-	if (!_stricmp(Arg, "list")) {
-		WriteChatf("\ay%s\aw:: Listing Food:", PLUGIN_NAME);
-		ListTypes(Hunger);
-		if (bAnnLevels) {
-			sprintf_s(Buffer, "%d", FeedAt);
-			WriteChatf("\ay%s\aw:: AutoFeed(\ag%s\ax).", PLUGIN_NAME, (FeedAt) ? Buffer : "\aroff");
-			WriteChatf("\ay%s\aw:: Current Hunger(\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->hungerlevel);
-		}
-	} else if (!_stricmp(Arg, "warn")) {
-		if (bFoodWarn) {
-			bFoodWarn = 0;
-			WriteChatf("\ay%s\aw:: Food Warning Off", PLUGIN_NAME);
-		} else {
-			bFoodWarn = 1;
-			WriteChatf("\ay%s\aw:: Food Warning On", PLUGIN_NAME);
-		}
-	}
-	else if (!_stricmp(Arg, "reload")) {
-		ReadList(&Hunger, "FOOD");
-		ReadList(&Thirst, "DRINK");
-	}
-	else if (!_stricmp(Arg, "add")) {
-		if (!ItemOnCursor()) {
-			WriteChatf("%s:: \arNeed to have a food item on your cursor to do this.", PLUGIN_NAME);
+
+	ItemPtr pItem = GetPcProfile()->GetInventorySlot(InvSlot_Cursor);
+	if (pItem)
+	{
+		if (!pItem->GetItemDefinition()->FoodDuration)
+		{
+			WriteChatf(PLUGINMSG "\arThat's not food or drink. Don't be rediculous");
 			return;
 		}
 
-		ItemPtr pItem = GetPcProfile()->GetInventorySlot(InvSlot_Cursor);
-		if (pItem) {
-			if (!pItem->GetItemDefinition()->FoodDuration || pItem->GetItemClass() != ItemClass_Food) {
-				WriteChatf("%s:: \arThat's not food. Don't be rediculous", PLUGIN_NAME);
-				return;
-			}
-			WriteChatf("%s:: \ayFound Item: \ap%s", PLUGIN_NAME, pItem->GetName());
-			int FoodIndex = (int)Hunger.size() + 1;
-			for (const std::string& itemName : Hunger) {
-				if (ci_equals(itemName, pItem->GetName())) {
-					WriteChatf("%s:: \ap%s \aris already on the list", PLUGIN_NAME, pItem->GetName());
+		WriteChatf(PLUGINMSG "\ayFound Item: \ap%s", pItem->GetName());
+
+		auto pItemClass = pItem->GetItemClass();
+		if (pItemClass == ItemClass_Food)
+		{
+			int FoodIndex = static_cast<int>(vFoodList.size()) + 1;
+
+			for (const std::string& itemName : vFoodList)
+			{
+				if (ci_equals(itemName, pItem->GetName()))
+				{
+					WriteChatf(PLUGINMSG "\ap%s \aris already on the list", pItem->GetName());
 					return;
 				}
 			}
+
 			WritePrivateProfileString("Food", fmt::format("Food{}", FoodIndex), pItem->GetName(), INIFileName);
-			Hunger.push_back(pItem->GetName());
-			EzCommand("/autoinv");
-			WriteChatf("%s \agAdded\aw: \ap%s \ayto your autofeed list", PLUGIN_NAME, pItem->GetName());
+			vFoodList.push_back(pItem->GetName());
 		}
-	}
-	else if (IsNumber(Arg)) {
-		FeedAt = atoi(Arg);
-		if (FeedAt < 0) FeedAt = 0;
-		else if (FeedAt > 5000) FeedAt = 5000;
-		sprintf_s(Buffer, "%d", FeedAt);
-		WritePrivateProfileString(GetCharInfo()->Name, "AutoFeed", Buffer, INIFileName);
-		WriteChatf("\ay%s\aw:: AutoFeed(\ag%s\ax).", PLUGIN_NAME, (FeedAt) ? Buffer : "\aroff");
-		if (bAnnLevels) WriteChatf("\ay%s\aw:: Current Thirst(\ag%d\ax) Hunger(\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->thirstlevel, GetPcProfile()->hungerlevel);
-	}
-	else if (!_stricmp(Arg, "announceConsume")) {
-		if (bAnnConsume) {
-			bAnnConsume = false;
-			WriteChatf("\ay%s\aw::Consumption Notification Off", PLUGIN_NAME);
+		else if (pItemClass == ItemClass_Drink)
+		{
+			int DrinkIndex = static_cast<int>(vDrinkList.size()) + 1;
+
+			for (const std::string& itemName : vDrinkList)
+			{
+				if (ci_equals(itemName, pItem->GetName()))
+				{
+					WriteChatf(PLUGINMSG "\ap%s \aris already on the list", pItem->GetName());
+					return;
+				}
+			}
+
+			WritePrivateProfileString("Drink", fmt::format("Drink{}", DrinkIndex), pItem->GetName(), INIFileName);
+			vDrinkList.push_back(pItem->GetName());
 		}
-		else {
-			bAnnConsume = true;
-			WriteChatf("\ay%s\aw::Consumption Notification On", PLUGIN_NAME);
+		else
+		{
+			WriteChatf(PLUGINMSG "\arWe don't know what to do with %s.", pItem->GetName());
+			return;
+		}
+
+		DoCommand("/autoinv");
+		WriteChatf(PLUGINMSG "\agAdded\aw: \ap%s \ayto your auto%s list", pItem->GetName(), (pItemClass == ItemClass_Food ? "feed" : "drink"));
+	}
+}
+
+void HandleRemoveFoodDrinkItem(const char* type, const char* item)
+{
+	std::vector<std::string>* targetVector = nullptr;
+	std::string sectionName;
+
+	if (ci_equals(type, "drink"))
+	{
+		targetVector = &vDrinkList;
+		sectionName = "Drink";
+	}
+	else if (ci_equals(type, "food"))
+	{
+		targetVector = &vFoodList;
+		sectionName = "Food";
+	}
+
+	auto it = std::find_if(targetVector->begin(), targetVector->end(),
+		[item](const std::string& vectorItem)
+		{
+			return ci_equals(item, vectorItem);
+		});
+
+	if (it != targetVector->end())
+	{
+		targetVector->erase(it);
+	}
+
+	// update ini with our vector of drinks
+	if (targetVector)
+	{
+		for (size_t i = 0; i < (targetVector->size()); ++i)
+		{
+			WritePrivateProfileString(sectionName.c_str(),
+				fmt::format("{}{}",
+					sectionName,
+					i).c_str(),
+				(*targetVector)[i].c_str(),
+				INIFileName);
+		}
+
+		// Delete any additional keys that exist
+		// this does an arbitrary check 10 past the vector size
+		// adding a function to count ini section keys seems a bit excessive
+		for (size_t i = targetVector->size(); i < targetVector->size() + 10; ++i)
+		{
+			std::string keyName = fmt::format("{}{}", sectionName, i);
+			DeletePrivateProfileKey(sectionName, keyName, INIFileName);
 		}
 	}
 }
 
-void AutoDrinkCmd(PSPAWNINFO pLPlayer, char* szLine)
+void GenericCommand(const char* szLine)
 {
-	if (!strlen(szLine)) {
-		if (GoodToFeed()) Consume(ItemClass_Drink, Thirst);
+	char Arg[MAX_STRING] = { 0 };
+	GetArg(Arg, szLine, 1);
+
+	if (ci_equals(Arg, "reload"))
+	{
+		PopulateVectorFromINISection(vFoodList, "Food");
+		PopulateVectorFromINISection(vDrinkList, "Drink");
+	}
+	else if (ci_equals(Arg, "announceConsume"))
+	{
+		if (bAnnounceConsume)
+		{
+			bAnnounceConsume = false;
+			WriteChatf(PLUGINMSG "\agConsumption Notification Off");
+		}
+		else
+		{
+			bAnnounceConsume = true;
+			WriteChatf(PLUGINMSG "\agConsumption Notification On");
+		}
+	}
+	else if (ci_equals(Arg, "IgnoreSafeZones"))
+	{
+
+		char NextArg[MAX_STRING] = { 0 };
+		strcpy_s(NextArg, GetNextArg(szLine));
+
+		if (NextArg[0] != '\0')
+		{
+			if (ci_equals(NextArg, "on"))
+			{
+				bIgnoreSafeZones = true;
+			}
+			else if (ci_equals(NextArg, "off"))
+			{
+				bIgnoreSafeZones = false;
+			}
+			else {
+				WriteChatf(PLUGINMSG "\ar%s\ax is an invalid option.", NextArg);
+			}
+			WritePrivateProfileBool("Settings", "IgnoreSafeZones", bIgnoreSafeZones, INIFileName);
+		}
+		WriteChatf(PLUGINMSG "\agIgnoreSafeZones (\ag%s\ax).", bIgnoreSafeZones ? "\agOn" : "\arOff");
+	}
+	else if (ci_equals("ui", Arg) || ci_equals("gui", Arg))
+	{
+		DoCommand("/mqsettings plugins/feedme");
+	}
+}
+
+void AutoFeedCmd(PlayerClient* pPlayer, const char* szLine)
+{
+	if (szLine[0] == '\0')
+	{
+		if (GoodToConsume())
+		{
+			Consume(ItemClass_Food, vFoodList);
+		}
 		return;
 	}
-	CHAR Arg[MAX_STRING] = { 0 };
+
+	bool bReport = false;
+	char Arg[MAX_STRING] = { 0 };
 	GetArg(Arg, szLine, 1);
-	if (!_stricmp(Arg, "list")) {
-		WriteChatf("\ay%s\aw:: Listing Drink:", PLUGIN_NAME);
-		ListTypes(Thirst);
-		if (bAnnLevels) {
-			sprintf_s(Buffer, "%d", DrnkAt);
-			WriteChatf("\ay%s\aw:: AutoDrink(\ag%s\ax).", PLUGIN_NAME, (DrnkAt) ? Buffer : "\aroff");
-			WriteChatf("\ay%s\aw:: Current Thirst(\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->thirstlevel);
+
+	if (ci_equals(Arg, "list"))
+	{
+		WriteChatf(PLUGINMSG "\agListing Food:");
+		ListTypes(vFoodList);
+
+		bReport = true;
+	}
+	else if (ci_equals(Arg, "warn"))
+	{
+		if (bFoodWarn)
+		{
+			bFoodWarn = false;
+			WriteChatf(PLUGINMSG "\agFood Warning \arOff");
 		}
-	} else if (!_stricmp(Arg, "warn")) {
-		if (bDrinkWarn) {
-			bDrinkWarn = 0;
-			WriteChatf("\ay%s\aw:: Drink Warning Off", PLUGIN_NAME);
-		} else {
-			bDrinkWarn = 1;
-			WriteChatf("\ay%s\aw:: Drink Warning On", PLUGIN_NAME);
+		else
+		{
+			bFoodWarn = true;
+			WriteChatf(PLUGINMSG "\agFood Warning On");
 		}
 	}
-	else if (!_stricmp(Arg, "reload")) {
-		ReadList(&Hunger, "FOOD");
-		ReadList(&Thirst, "DRINK");
+	else if (ci_equals(Arg, "add"))
+	{
+		HandleAddFoodDrinkItem();
 	}
-	else if (!_stricmp(Arg, "add")) {
-		if (!ItemOnCursor()) {
-			WriteChatf("%s:: \arNeed to have a food item on your cursor to do this.", PLUGIN_NAME);
+	else if (ci_equals(Arg, "remove"))
+	{
+		const char* item = GetNextArg(szLine);
+		if (item[0] == '\0')
+		{
 			return;
 		}
 
-		ItemPtr pItem = GetPcProfile()->GetInventorySlot(InvSlot_Cursor);
-		if (pItem) {
-			if (!pItem->GetItemDefinition()->FoodDuration || pItem->GetItemClass() != ItemClass_Drink) {
-				WriteChatf("%s:: \arThat's not a drink. Don't be ridiculous", PLUGIN_NAME);
-				return;
-			}
-			WriteChatf("%s:: \ayFound Item: \ap%s", PLUGIN_NAME, pItem->GetName());
-			int FoodIndex = (int)Thirst.size() + 1;
-			for (const std::string& itemName : Thirst) {
-				if (ci_equals(itemName, pItem->GetName())) {
-					WriteChatf("%s:: \ap%s \aris already on the list", PLUGIN_NAME, pItem->GetName());
-					return;
-				}
-			}
-			WritePrivateProfileString("Drink", fmt::format("Drink{}", FoodIndex), pItem->GetName(), INIFileName);
-			Thirst.push_back(pItem->GetName());
-			EzCommand("/autoinv");
-			WriteChatf("%s \agAdded\aw: \ap%s \ayto your autodrink list", PLUGIN_NAME, pItem->GetName());
+		HandleRemoveFoodDrinkItem("food", item);
+	}
+	else if (IsNumber(Arg))
+	{
+		iFeedAt = GetIntFromString(Arg, 5000);
+		iFeedAt = std::clamp(iFeedAt, 0, 5000);
+
+		WritePrivateProfileInt(pLocalPC->Name, "AutoFeed", iFeedAt, INIFileName);
+		bReport = true;
+	}
+
+	if (bReport && bAnnounceLevels)
+	{
+		if (iFeedAt)
+		{
+			WriteChatf(PLUGINMSG "\agAutoFeed (\ag%d\ax).", iFeedAt);
 		}
+		else
+		{
+			WriteChatf(PLUGINMSG "\agAutoFeed (\aroff\ax).");
+		}
+		WriteChatf(PLUGINMSG "\agCurrent Thirst\aw: (\ag%d\ag) Hunger\aw: (\ag%d\ax)", GetPcProfile()->thirstlevel, GetPcProfile()->hungerlevel);
 	}
-	else if (IsNumber(Arg)) {
-		DrnkAt = atoi(Arg);
-		if (DrnkAt < 0) DrnkAt = 0;
-		else if (DrnkAt > 5000) DrnkAt = 5000;
-		sprintf_s(Buffer, "%d", DrnkAt);
-		WritePrivateProfileString(GetCharInfo()->Name, "AutoDrink", Buffer, INIFileName);
-		WriteChatf("\ay%s\aw:: AutoDrink(\ag%s\ax).", PLUGIN_NAME, (DrnkAt) ? Buffer :"\aroff");
-		if (bAnnLevels) WriteChatf("\ay%s\aw:: Current Thirst(\ag%d\ax) Hunger(\ag%d\ax)", PLUGIN_NAME, GetPcProfile()->thirstlevel, GetPcProfile()->hungerlevel);
+
+	GenericCommand(szLine);
+}
+
+void AutoDrinkCmd(PlayerClient* pPlayer, const char* szLine)
+{
+	if (szLine[0] == '\0')
+	{
+		if (GoodToConsume())
+		{
+			Consume(ItemClass_Drink, vDrinkList);
+		}
+		return;
 	}
-	else if (!_stricmp(Arg, "announceConsume")) {
-		if (bAnnConsume) {
-			bAnnConsume = false;
-			WriteChatf("\ay%s\aw::Consumption Notification Off", PLUGIN_NAME);
+
+	bool bReport = false;
+	char Arg[MAX_STRING] = { 0 };
+	GetArg(Arg, szLine, 1);
+
+	if (ci_equals(Arg, "list"))
+	{
+		WriteChatf(PLUGINMSG "\agListing Drink:");
+		ListTypes(vDrinkList);
+		bReport = true;
+	}
+	else if (ci_equals(Arg, "warn"))
+	{
+		if (bDrinkWarn)
+		{
+			bDrinkWarn = false;
+			WriteChatf(PLUGINMSG "\agDrink Warning \arOff");
 		}
 		else {
-			bAnnConsume = true;
-			WriteChatf("\ay%s\aw::Consumption Notification On", PLUGIN_NAME);
+			bDrinkWarn = true;
+			WriteChatf(PLUGINMSG "\agDrink Warning On");
 		}
 	}
+	else if (ci_equals(Arg, "add"))
+	{
+		HandleAddFoodDrinkItem();
+	}
+	else if (ci_equals(Arg, "remove"))
+	{
+		const char* item = GetNextArg(szLine);
+		if (item[0] == '\0')
+		{
+			return;
+		}
+		// check both vectors for the item
+		// and remove
+		HandleRemoveFoodDrinkItem("drink", item);
+	}
+	else if (IsNumber(Arg))
+	{
+		iDrinkAt = GetIntFromString(Arg, 5000);
+		iDrinkAt = std::clamp(iDrinkAt, 0, 5000);
+
+		WritePrivateProfileInt(pLocalPC->Name, "AutoDrink", iDrinkAt, INIFileName);
+		bReport = true;
+	}
+
+	if (bReport && bAnnounceLevels)
+	{
+		if (iFeedAt)
+		{
+			WriteChatf(PLUGINMSG "\agAutoDrink (\ag%d\ax).", iDrinkAt);
+		}
+		else
+		{
+			WriteChatf(PLUGINMSG "\agAutoDrink (\aroff\ax).");
+		}
+		WriteChatf(PLUGINMSG "\agCurrent Thirst\aw: (\ag%d\ag) Hunger\aw: (\ag%d\ax)", GetPcProfile()->thirstlevel, GetPcProfile()->hungerlevel);
+		return;
+	}
+
+	GenericCommand(szLine);
 }
 
 PLUGIN_API void OnPulse()
 {
-	static int Pulses = 0;
-	if (++Pulses < 50) return;
-	Pulses = 0;
-	if (!GoodToFeed()) return;
-	if (DrnkAt && (LONG)GetPcProfile()->thirstlevel < DrnkAt) Consume(ItemClass_Drink,Thirst);
-	if (FeedAt && (LONG)GetPcProfile()->hungerlevel < FeedAt) Consume(ItemClass_Food,Hunger);
+	static std::chrono::steady_clock::time_point PulseTimer = std::chrono::steady_clock::now();
+	// let's slow it down and only check every second
+	if (std::chrono::steady_clock::now() > PulseTimer)
+	{
+
+		if (!GoodToConsume())
+		{
+			return;
+		}
+
+		if (iDrinkAt && GetPcProfile()->thirstlevel < iDrinkAt)
+		{
+			Consume(ItemClass_Drink, vDrinkList);
+		}
+
+		if (iFeedAt && GetPcProfile()->hungerlevel < iFeedAt)
+		{
+			Consume(ItemClass_Food, vFoodList);
+		}
+
+		// Wait 1 second before running again
+		PulseTimer = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+	}
 }
 
-PLUGIN_API DWORD OnIncomingChat(PCHAR Line, DWORD Color)
+PLUGIN_API DWORD OnIncomingChat(const char* Line, const unsigned int Color)
 {
-	if (!IAmCamping && strstr(Line, "It will take you about 30 seconds to prepare your camp.")) {
-		IAmCamping = true;
-	}
-	else if (IAmCamping && strstr(Line, "You abandon your preparations to camp.")) {
-		IAmCamping = false;
+	if (Color == USERCOLOR_DEFAULT)
+	{
+		if (!bIAmCamping)
+		{
+			if (find_substr(Line, "It will take you about 30 seconds to prepare your camp.") != -1)
+			{
+				bIAmCamping = true;
+			}
+		}
+		else
+		{
+			if (find_substr(Line, "You abandon your preparations to camp.") != -1)
+			{
+				bIAmCamping = false;
+			}
+		}
 	}
 	return 0;
 }
 
 PLUGIN_API VOID OnZoned()
 {
-	//If I switch characters and IAmCamping is still true and I finish zoning, and the gamestate is ingame...
-	if (IAmCamping && GetGameState() == GAMESTATE_INGAME)
-		IAmCamping = false;
+	if (gGameState == GAMESTATE_CHARSELECT)
+	{
+		bIAmCamping = false;
+	}
 }
 
-PLUGIN_API void SetGameState(DWORD GameState)
+PLUGIN_API void SetGameState(const int GameState)
 {
-	if (GameState == GAMESTATE_INGAME) {
-		if (GetPcProfile()) {
-			DrnkAt     = GetPrivateProfileInt(GetCharInfo()->Name, "AutoDrink", 0, INIFileName);
-			FeedAt     = GetPrivateProfileInt(GetCharInfo()->Name, "AutoFeed",  0, INIFileName);
-			bAnnLevels = GetPrivateProfileInt("Settings",          "Announce",  1, INIFileName) != 0;
-			bAnnConsume = GetPrivateProfileInt("Settings",         "Announce", 1, INIFileName) != 0;
-			bFoodWarn  = GetPrivateProfileInt("Settings",          "FoodWarn",  0, INIFileName) != 0;
-			bDrinkWarn = GetPrivateProfileInt("Settings",          "DrinkWarn",  0, INIFileName) != 0;
+	if (GameState == GAMESTATE_INGAME)
+	{
+		if (pLocalPC)
+		{
+			iDrinkAt = GetPrivateProfileInt(pLocalPC->Name, "AutoDrink", 0, INIFileName);
+			iFeedAt = GetPrivateProfileInt(pLocalPC->Name, "AutoFeed",  0, INIFileName);
+			bAnnounceLevels = GetPrivateProfileBool("Settings", "Announce",  true, INIFileName);
+			bAnnounceConsume = GetPrivateProfileBool("Settings", "Announce", true, INIFileName);
+			bFoodWarn = GetPrivateProfileBool("Settings", "FoodWarn", false, INIFileName);
+			bDrinkWarn = GetPrivateProfileBool("Settings", "DrinkWarn", false, INIFileName);
 
-			WritePrivateProfileString("Settings", "Announce", bAnnLevels ? "1" : "0", INIFileName);
-			WritePrivateProfileString("Settings", "FoodWarn", bFoodWarn ? "1" : "0", INIFileName);
-			WritePrivateProfileString("Settings", "DrinkWarn", bDrinkWarn ? "1" : "0", INIFileName);
-			if (!Loaded) {
-				ReadList(&Hunger,"FOOD");
-				ReadList(&Thirst,"DRINK");
+			WritePrivateProfileBool("Settings", "Announce", bAnnounceLevels, INIFileName);
+			WritePrivateProfileBool("Settings", "FoodWarn", bFoodWarn, INIFileName);
+			WritePrivateProfileBool("Settings", "DrinkWarn", bDrinkWarn, INIFileName);
+			WritePrivateProfileBool("Settings", "IgnoreSafeZones", bIgnoreSafeZones, INIFileName);
+
+			if (!Loaded)
+			{
+				PopulateVectorFromINISection(vFoodList, "FOOD");
+				PopulateVectorFromINISection(vDrinkList, "DRINK");
 				Loaded = true;
 			}
 		}
+	}
+}
+
+void FeedMeImGuiSettingsPanel()
+{
+	if (ImGui::Checkbox("Announce levels and consumption", &bAnnounceConsume))
+	{
+		WritePrivateProfileBool("Settings", "Announce", bAnnounceConsume, INIFileName);
+	}
+	ImGui::SameLine();
+	mq::imgui::HelpMarker("Announce levels and consumption.\n\nINI Setting: Announce");
+
+	if (ImGui::Checkbox("Don't consume in safe zones", &bIgnoreSafeZones))
+	{
+		WritePrivateProfileBool("Settings", "IgnoreSafeZones", bIgnoreSafeZones, INIFileName);
+	}
+	ImGui::SameLine();
+	mq::imgui::HelpMarker("Ignore safe zones like \"poknowledge\" or \"guildlobby\" for auto consumption.\nThis does *NOT* move food around in your bags.\n\nINI Setting: IgnoreSafeZones");
+
+	if (ImGui::Checkbox("Warn when no food", &bFoodWarn))
+	{
+		WritePrivateProfileBool("Settings", "FoodWarn", bFoodWarn, INIFileName);
+	}
+	ImGui::SameLine();
+	mq::imgui::HelpMarker("Warn when no food.\n\nINI Setting: FoodWarn");
+
+	if (ImGui::Checkbox("Warn when no drink", &bDrinkWarn))
+	{
+		WritePrivateProfileBool("Settings", "DrinkWarn", bDrinkWarn, INIFileName);
+	}
+	ImGui::SameLine();
+	mq::imgui::HelpMarker("Warn when no drink.\n\nINI Setting: DrinkWarn");
+
+	constexpr int iInputWidth = 150;
+	// so we get consistent alignment we should put these two in a table
+	if (ImGui::BeginTable("AutoConsumeTable", 2, ImGuiTableFlags_SizingFixedFit))
+	{
+		// Drink
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::TextUnformatted("Consume Drink at thirst level:");
+		ImGui::TableNextColumn();
+		ImGui::SetNextItemWidth(iInputWidth);
+		if (ImGui::InputInt("##iDrinkAt", &iDrinkAt))
+		{
+			iDrinkAt = std::clamp(iDrinkAt, 0, 5000);
+
+			WritePrivateProfileInt("Settings", "AutoDrink", iDrinkAt, INIFileName);
+		}
+		ImGui::SameLine();
+		mq::imgui::HelpMarker("When we reach this thirst value we will consume a drink on your drink list until we are at/above the AutoDrink value.\n\nINI Setting: DrinkAt");
+
+		// Food
+		ImGui::TableNextRow();
+		ImGui::TableNextColumn();
+		ImGui::TextUnformatted("Consume Food at hunger level:");
+		ImGui::TableNextColumn();
+		ImGui::SetNextItemWidth(iInputWidth);
+		if (ImGui::InputInt("##iFeedAt", &iFeedAt))
+		{
+			iFeedAt = std::clamp(iFeedAt, 0, 5000);
+
+			WritePrivateProfileInt("Settings", "AutoFeed", iFeedAt, INIFileName);
+		}
+		ImGui::SameLine();
+		mq::imgui::HelpMarker("When we reach this hunger value we will consume food on your drink list until we are at/above the AutoFeed value.\n\nINI Setting: FeedAt");
+
+		ImGui::EndTable();
+	}
+
+	const float buttonsize = ImGui::GetWindowSize().x * 0.45f;
+	if (ImGui::Button("Add food from cursor", ImVec2(buttonsize, 0)))
+	{
+		HandleAddFoodDrinkItem();
+	}
+	ImGui::SameLine();
+
+	if (ImGui::Button("Add drink from cursor", ImVec2(buttonsize, 0)))
+	{
+		HandleAddFoodDrinkItem();
+	}
+
+	ImGui::SetWindowFontScale(0.80f); // make it small
+	float columnWidth = ImGui::GetColumnWidth();
+	const char* text = "Double click to delete an item from the list.";
+	ImVec2 textSize = ImGui::CalcTextSize(text);
+
+	float offset = (columnWidth - textSize.x) * 0.5f;
+	if (offset > 0.0f)
+	{
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset);
+	}
+	ImGui::TextUnformatted(text);
+	ImGui::SetWindowFontScale(1.0f); // set it back
+
+
+	if (ImGui::BeginTable("##FeedMeFoodList", 1, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY, ImVec2(0, 150)))
+	{
+		ImGui::TableSetupColumn("Food");
+		ImGui::TableSetupScrollFreeze(0, 1);
+		ImGui::TableHeadersRow();
+		for (const std::string& food : vFoodList)
+		{
+			ImGui::PushID(food.c_str());
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(food.c_str());
+
+			// double click to remove
+			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+			{
+				HandleRemoveFoodDrinkItem("food", food.c_str());
+			}
+
+			ImGui::PopID();
+		}
+
+		ImGui::EndTable();
+	}
+
+	if (ImGui::BeginTable("##FeedMeDrinkList", 1, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY, ImVec2(0, 150)))
+	{
+		ImGui::TableSetupColumn("Drink");
+		ImGui::TableSetupScrollFreeze(0, 1);
+		ImGui::TableHeadersRow();
+		for (const std::string& drink : vDrinkList)
+		{
+			ImGui::PushID(drink.c_str());
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(drink.c_str());
+
+			// double click to remove
+			if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+			{
+				HandleRemoveFoodDrinkItem("drink", drink.c_str());
+			}
+
+			ImGui::PopID();
+		}
+
+		ImGui::EndTable();
 	}
 }
 
@@ -355,10 +803,18 @@ PLUGIN_API void InitializePlugin()
 {
 	AddCommand("/autofeed",  AutoFeedCmd);
 	AddCommand("/autodrink", AutoDrinkCmd);
+
+	AddSettingsPanel("plugins/FeedMe", FeedMeImGuiSettingsPanel);
+	pFeedMeType = new MQ2FeedMeType;
+	AddMQ2Data("FeedMe", dataFeedMe);
 }
 
 PLUGIN_API void ShutdownPlugin()
 {
 	RemoveCommand("/autofeed");
 	RemoveCommand("/autodrink");
+
+	RemoveSettingsPanel("plugins/FeedMe");
+	delete pFeedMeType;
+	RemoveMQ2Data("FeedMe");
 }
