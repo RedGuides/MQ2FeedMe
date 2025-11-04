@@ -140,8 +140,8 @@ bool InSafeZone()
 
 bool WindowOpen(const char* WindowName)
 {
-	const auto pWnd = FindMQ2Window(WindowName);
-	return  pWnd != nullptr && pWnd->IsVisible();
+	CXWnd* pWnd = FindMQ2Window(WindowName);
+	return pWnd != nullptr && pWnd->IsVisible();
 }
 
 bool IsCasting()
@@ -154,14 +154,14 @@ bool AbilityInUse()
 	return pLocalPlayer && pLocalPlayer->CastingData.SpellETA != 0;
 }
 
-void PopulateVectorFromINISection(std::vector<std::string>&vVector, const char* section)
+std::vector<std::string> PopulateVectorFromINISection(const char* section)
 {
-	vVector.clear(); // clear the vector to ensure we're not duplicating
+	std::vector<std::string> vVector; // clear the vector to ensure we're not duplicating
 
 	char keys[64] = { 0 };
 	GetPrivateProfileStringA(
 		section,      // section name
-		NULL,         // get all keys
+		nullptr,      // get all keys
 		"",           // default
 		keys,         // buffer
 		sizeof(keys), // buffer size
@@ -182,32 +182,32 @@ void PopulateVectorFromINISection(std::vector<std::string>&vVector, const char* 
 		);
 		vVector.push_back(value);
 	}
+
+	return vVector;
 }
 
 bool GoodToConsume()
 {
-	auto pChar2 = GetPcProfile();
-
 	if (!pLocalPlayer)
 	{
 		return false;
 	}
 
-	int iZoneID = EQWorldData::GetZoneBaseId(pLocalPlayer->GetZoneID());
+	auto pProfile = GetPcProfile();
 
-	if(GetGameState() == GAMESTATE_INGAME                       // currently ingame
+	if (GetGameState() == GAMESTATE_INGAME                      // currently ingame
 		&& pLocalPC                                             // have Charinfo
-		&& pLocalPC->pSpawn                                     // have a Spawn
-		&& pChar2                                               // have PcProfile
+		&& pLocalPlayer                                         // have a Spawn
+		&& pProfile                                             // have PcProfile
 		&& !ItemOnCursor()                                      // nothing on cursor
-		&& (!IsCasting() || pChar2->Class == Bard)              // not casting unless bard
-		&& (!AbilityInUse() || pChar2->Class == Bard)           // not using abilities unless bard
+		&& (!IsCasting() || pProfile->Class == Bard)            // not casting unless bard
+		&& (!AbilityInUse() || pProfile->Class == Bard)         // not using abilities unless bard
 		&& !WindowOpen("SpellBookWnd")                          // not looking at the book
 		&& !WindowOpen("MerchantWnd")                           // not interacting with vendor
 		&& !WindowOpen("TradeWnd")                              // not trading with someone
 		&& !WindowOpen("BigBankWnd") && !WindowOpen("BankWnd")  // not banking
 		&& !WindowOpen("LootWnd")                               // not looting
-		&& pLocalPC->pSpawn->StandState != STANDSTATE_FEIGN     // not Feigned
+		&& pLocalPlayer->StandState != STANDSTATE_FEIGN         // not Feigned
 		&& (!bIgnoreSafeZones || !InSafeZone())                 // if we are ignoring safe zones, make sure we're not in one
 		&& !bIAmCamping)                                        // not camping
 	{
@@ -219,13 +219,13 @@ bool GoodToConsume()
 
 void ListTypes(const std::vector<std::string>& vVector)
 {
-	for (int i = 0; i < vVector.size(); ++i)
+	for (size_t i = 0; i < vVector.size(); ++i)
 	{
 		WriteChatf("\ag - %d. \aw%s", i + 1, vVector[i].c_str());
 	}
 }
 
-void Consume(uint8_t itemClass, std::vector<std::string> &vVector)
+void Consume(uint8_t itemClass, const std::vector<std::string>& vVector)
 {
 	for (const std::string& name : vVector)
 	{
@@ -266,8 +266,7 @@ void HandleAddFoodDrinkItem()
 		return;
 	}
 
-	ItemPtr pItem = GetPcProfile()->GetInventorySlot(InvSlot_Cursor);
-	if (pItem)
+	if (ItemPtr pItem = GetPcProfile()->GetInventorySlot(InvSlot_Cursor))
 	{
 		if (!pItem->GetItemDefinition()->FoodDuration)
 		{
@@ -280,7 +279,6 @@ void HandleAddFoodDrinkItem()
 		auto pItemClass = pItem->GetItemClass();
 		if (pItemClass == ItemClass_Food)
 		{
-			int FoodIndex = static_cast<int>(vFoodList.size()) + 1;
 
 			for (const std::string& itemName : vFoodList)
 			{
@@ -291,13 +289,11 @@ void HandleAddFoodDrinkItem()
 				}
 			}
 
-			WritePrivateProfileString("Food", fmt::format("Food{}", FoodIndex), pItem->GetName(), INIFileName);
 			vFoodList.push_back(pItem->GetName());
+			WritePrivateProfileString("Food", fmt::format("Food{}", vFoodList.size()), pItem->GetName(), INIFileName);
 		}
 		else if (pItemClass == ItemClass_Drink)
 		{
-			int DrinkIndex = static_cast<int>(vDrinkList.size()) + 1;
-
 			for (const std::string& itemName : vDrinkList)
 			{
 				if (ci_equals(itemName, pItem->GetName()))
@@ -307,8 +303,8 @@ void HandleAddFoodDrinkItem()
 				}
 			}
 
-			WritePrivateProfileString("Drink", fmt::format("Drink{}", DrinkIndex), pItem->GetName(), INIFileName);
 			vDrinkList.push_back(pItem->GetName());
+			WritePrivateProfileString("Drink", fmt::format("Drink{}", vDrinkList.size()), pItem->GetName(), INIFileName);
 		}
 		else
 		{
@@ -317,7 +313,7 @@ void HandleAddFoodDrinkItem()
 		}
 
 		DoCommand("/autoinv");
-		WriteChatf(PLUGINMSG "\agAdded\aw: \ap%s \ayto your auto%s list", pItem->GetName(), (pItemClass == ItemClass_Food ? "feed" : "drink"));
+		WriteChatf(PLUGINMSG "\agAdded\aw: \ap%s \ayto your auto%s list", pItem->GetName(), pItemClass == ItemClass_Food ? "feed" : "drink");
 	}
 }
 
@@ -353,12 +349,7 @@ void HandleRemoveFoodDrinkItem(const char* type, const char* item)
 	{
 		for (size_t i = 0; i < (targetVector->size()); ++i)
 		{
-			WritePrivateProfileString(sectionName.c_str(),
-				fmt::format("{}{}",
-					sectionName,
-					i).c_str(),
-				(*targetVector)[i].c_str(),
-				INIFileName);
+			WritePrivateProfileString(sectionName, fmt::format("{}{}", sectionName, i), (*targetVector)[i], INIFileName);
 		}
 
 		// Delete any additional keys that exist
@@ -379,8 +370,8 @@ void GenericCommand(const char* szLine)
 
 	if (ci_equals(Arg, "reload"))
 	{
-		PopulateVectorFromINISection(vFoodList, "Food");
-		PopulateVectorFromINISection(vDrinkList, "Drink");
+		vFoodList = PopulateVectorFromINISection("Food");
+		vDrinkList = PopulateVectorFromINISection("Drink");
 	}
 	else if (ci_equals(Arg, "announceConsume"))
 	{
@@ -411,7 +402,8 @@ void GenericCommand(const char* szLine)
 			{
 				bIgnoreSafeZones = false;
 			}
-			else {
+			else
+			{
 				WriteChatf(PLUGINMSG "\ar%s\ax is an invalid option.", NextArg);
 			}
 			WritePrivateProfileBool("Settings", "IgnoreSafeZones", bIgnoreSafeZones, INIFileName);
@@ -649,8 +641,8 @@ PLUGIN_API void SetGameState(const int GameState)
 
 			if (!Loaded)
 			{
-				PopulateVectorFromINISection(vFoodList, "FOOD");
-				PopulateVectorFromINISection(vDrinkList, "DRINK");
+				vFoodList = PopulateVectorFromINISection("FOOD");
+				vDrinkList = PopulateVectorFromINISection("DRINK");
 				Loaded = true;
 			}
 		}
