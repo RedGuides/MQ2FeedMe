@@ -728,8 +728,7 @@ void FeedMeImGuiSettingsPanel()
 		HandleAddFoodDrinkItem();
 	}
 
-	// this is for ImGui 1.92+
-	float originalSize = ImGui::GetFontSize();
+	float originalSize = ImGui::GetStyle().FontSizeBase;
 	float smallSize = originalSize * 0.80f;
 	float columnWidth = ImGui::GetColumnWidth();
 	const char* text = "Double click to delete an item from the list.";
