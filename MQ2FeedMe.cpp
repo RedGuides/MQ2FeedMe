@@ -728,9 +728,11 @@ void FeedMeImGuiSettingsPanel()
 		HandleAddFoodDrinkItem();
 	}
 
-	ImGui::SetWindowFontScale(0.80f); // make it small
+	float originalSize = ImGui::GetStyle().FontSizeBase;
+	float smallSize = originalSize * 0.80f;
 	float columnWidth = ImGui::GetColumnWidth();
 	const char* text = "Double click to delete an item from the list.";
+	ImGui::PushFont(nullptr, smallSize); // nullptr keeps current font, just change size
 	ImVec2 textSize = ImGui::CalcTextSize(text);
 
 	float offset = (columnWidth - textSize.x) * 0.5f;
@@ -739,7 +741,7 @@ void FeedMeImGuiSettingsPanel()
 		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset);
 	}
 	ImGui::TextUnformatted(text);
-	ImGui::SetWindowFontScale(1.0f); // set it back
+	ImGui::PopFont(); // set it back
 
 
 	if (ImGui::BeginTable("##FeedMeFoodList", 1, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY, ImVec2(0, 150)))
