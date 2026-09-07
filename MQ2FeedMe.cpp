@@ -158,7 +158,7 @@ std::vector<std::string> PopulateVectorFromINISection(const char* section)
 {
 	std::vector<std::string> vVector; // clear the vector to ensure we're not duplicating
 
-	char keys[64] = { 0 };
+	char keys[MAX_STRING] = { 0 };
 	GetPrivateProfileStringA(
 		section,      // section name
 		nullptr,      // get all keys
@@ -180,6 +180,12 @@ std::vector<std::string> PopulateVectorFromINISection(const char* section)
 			sizeof(value),
 			INIFileName
 		);
+
+		// skip empty values
+		if (value[0] == '\0')
+		{
+			continue;
+		}
 		vVector.push_back(value);
 	}
 
